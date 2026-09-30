@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Iran Stock Demo — داشبورد</title>
+<style>
+body{font-family:Tahoma,Arial,sans-serif;margin:0;background:#0b1220;color:#e8eef8}
+.wrap{max-width:1100px;margin:auto;padding:18px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.card{background:#121c2e;border:1px solid #263650;border-radius:14px;padding:16px;box-shadow:0 6px 20px #0003}
+h1{margin:0 0 6px}.muted{color:#91a0b8}.big{font-size:25px;font-weight:700}.up{color:#42d392}.down{color:#ff7185}
+table{width:100%;border-collapse:collapse;margin-top:10px}td,th{padding:9px;border-bottom:1px solid #263650;text-align:right}
+@media(max-width:600px){.wrap{padding:10px}.big{font-size:21px}}
+</style></head>
+<body><div class="wrap">
+<h1>📊 Iran Stock Demo</h1><div id="updated" class="muted">در حال دریافت داده...</div>
+<div id="summary" class="grid" style="margin-top:14px"></div>
+<div class="grid" style="margin-top:14px">
+<div class="card"><h3>🔥 برترین رشد</h3><div id="gainers"></div></div>
+<div class="card"><h3>💧 بیشترین حجم</h3><div id="volume"></div></div>
+</div>
+<div class="card" style="margin-top:14px"><h3>🎯 نماد تحت پایش</h3><div id="signal"></div></div>
+</div>
+<script>
+const money=n=>Number(n||0).toLocaleString('fa-IR',{maximumFractionDigits:0});
+const pct=n=>Number(n||0).toLocaleString('fa-IR',{maximumFractionDigits:2})+'٪';
+function table(rows){return '<table><tr><th>نماد</th><th>تغییر</th><th>آخرین</th></tr>'+rows.map(x=>'<tr><td>'+x.symbol+'</td><td class="'+(x.change_pct>=0?'up':'down')+'">'+pct(x.change_pct)+'</td><td>'+money(x.last_toman)+'</td></tr>').join('')+'</table>'}
+fetch('data.json?x='+Date.now()).then(r=>r.json()).then(d=>{
+document.getElementById('updated').textContent='آخرین بروزرسانی: '+new Date(d.generated_at).toLocaleString('fa-IR');
+const s=d.summary||{}, sig=d.signal||{};
+document.getElementById('summary').innerHTML=
+'<div class="card"><div class="muted">نماد</div><div class="big">'+(s.symbol||'-')+'</div></div>'+
+'<div class="card"><div class="muted">قیمت</div><div class="big">'+money(s.price_toman)+' تومان</div></div>'+
+'<div class="card"><div class="muted">امتیاز</div><div class="big">'+(sig.score??'-')+'/100</div></div>'+
+'<div class="card"><div class="muted">وضعیت</div><div class="big">'+(sig.action||'-')+'</div></div>';
+document.getElementById('gainers').innerHTML=table(d.top_gainers||[]);
+document.getElementById('volume').innerHTML=table(d.top_volume||[]);
+document.getElementById('signal').innerHTML='<b>دلایل:</b> '+(sig.reasons||[]).join('، ')+'<br><span class="muted">این سامانه فقط Paper/Demo است و سفارش واقعی ارسال نمی‌کند.</span>';
+}).catch(e=>document.getElementById('updated').textContent='داده داشبورد در دسترس نیست: '+e);
+</script></body></html>
