@@ -11,6 +11,7 @@ class Config:
     min_score: int = int(os.getenv("MIN_SIGNAL_SCORE", "80"))
     request_timeout: int = int(os.getenv("TSETMC_TIMEOUT", "15"))
     retries: int = int(os.getenv("TSETMC_RETRIES", "3"))
+    telegram_enabled: bool = os.getenv("TELEGRAM_ENABLED", "true").lower() == "true"
     @property
     def headers(self):
         return {"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36","Accept":"application/json,text/plain,*/*","Referer":"https://www.tsetmc.com/","Origin":"https://www.tsetmc.com"}
