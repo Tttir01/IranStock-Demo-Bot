@@ -78,5 +78,11 @@ def main():
                          "top_gainers":[],"top_volume":[]})
         account.save()
         print(f"TSETMC UNAVAILABLE | {exc}")
-        if cfg.telegram_enabled:\n            send_message(f"⚠️ ربات دمو بورس ایران\\nدسترسی به داده‌های TSETMC در این اجرا برقرار نشد.\\nجزئیات: {exc}")\n
+        if cfg.telegram_enabled:
+            send_message(
+                "⚠️ ربات دمو بورس ایران\n"
+                "دسترسی به داده‌های TSETMC در این اجرا برقرار نشد.\n"
+                f"جزئیات: {exc}"
+            )
+
 if __name__=="__main__": main()
