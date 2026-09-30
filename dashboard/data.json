@@ -7,7 +7,7 @@
     "score": 0,
     "action": "UNAVAILABLE",
     "reasons": [
-      "HTTPSConnectionPool(host='cdn.tsetmc.com', port=443): Max retries exceeded with url: /api/Instrument/GetInstrumentSearch/%D9%81%D9%88%D9%84%D8%A7%D8%AF (Caused by ConnectTimeoutError(<HTTPSConnection(host='cdn.tsetmc.com', port=443) at 0x7fb264544c50>, 'Connection to cdn.tsetmc.com timed out. (connect timeout=15)'))"
+      "HTTPSConnectionPool(host='cdn10.tsetmc.com', port=443): Max retries exceeded with url: /api/Instrument/GetInstrumentSearch/%D9%81%D9%88%D9%84%D8%A7%D8%AF (Caused by NameResolutionError(\"HTTPSConnection(host='cdn10.tsetmc.com', port=443): Failed to resolve 'cdn10.tsetmc.com' ([Errno -2] Name or service not known)\"))"
     ]
   },
   "paper": {
@@ -21,5 +21,5 @@
   "paper_action": "NONE",
   "top_gainers": [],
   "top_volume": [],
-  "generated_at": "2026-09-30T07:40:48.873630+00:00"
+  "generated_at": "2026-09-30T07:46:11.956077+00:00"
 }
