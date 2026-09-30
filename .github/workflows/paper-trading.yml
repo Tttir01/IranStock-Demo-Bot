@@ -15,5 +15,11 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements.txt
       - run: pytest -q
-      - name: Market data and paper signal
+      - name: Market data, paper signal and dashboard
         run: python -m src.main
+      - name: Upload dashboard
+        uses: actions/upload-artifact@v4
+        with:
+          name: iran-stock-dashboard
+          path: dashboard/
+          retention-days: 7
