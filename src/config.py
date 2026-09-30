@@ -9,8 +9,8 @@ class Config:
     stop_loss_pct: float = float(os.getenv("STOP_LOSS_PCT", "0.04"))
     take_profit_pct: float = float(os.getenv("TAKE_PROFIT_PCT", "0.08"))
     min_score: int = int(os.getenv("MIN_SIGNAL_SCORE", "80"))
-    request_timeout: int = int(os.getenv("TSETMC_TIMEOUT", "15"))
-    retries: int = int(os.getenv("TSETMC_RETRIES", "3"))
+    request_timeout: int = int(os.getenv("TSETMC_TIMEOUT", "8"))
+    retries: int = int(os.getenv("TSETMC_RETRIES", "1"))
     telegram_enabled: bool = os.getenv("TELEGRAM_ENABLED", "true").lower() == "true"
     @property
     def headers(self):
