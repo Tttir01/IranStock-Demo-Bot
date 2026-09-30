@@ -1,6 +1,7 @@
 from src.config import Config
 from src.data.tsetmc_client import TsetmcClient, TsetmcError
 from src.data.brsapi_client import BrsApiProvider, ProviderError
+from src.data.tindex_client import TindexProvider, TindexError
 from src.analysis.signal_engine import score_signal
 from src.analysis.screener import market_rows, top_gainers, top_volume
 from src.dashboard.generate import write_dashboard
@@ -13,6 +14,7 @@ def main():
     cfg = Config()
     client = TsetmcClient(cfg)
     brs = BrsApiProvider(cfg.brs_api_key, cfg.brs_api_timeout)
+    tindex = TindexProvider(cfg.tindex_api_key, cfg.tindex_api_timeout)
     account = PaperAccount.load(initial_cash=cfg.initial_cash)
     provider_name = "TSETMC"
 
@@ -36,7 +38,23 @@ def main():
                 provider_name = "TSETMC-LEGACY"
                 print(f"DATA PROVIDER FALLBACK | {provider_name} | reason={primary_exc}")
             except TsetmcError as legacy_exc:
-                if not brs.available:
+                try:
+                    if not tindex.available:
+                        raise TindexError("TINDEX_API_KEY is not configured")
+                    found = tindex.resolve(cfg.symbol)
+                    slug = found["slug"]
+                    symbol = found.get("ticker") or cfg.symbol
+                    hist = tindex.history(slug, "3m")
+                    detail = tindex.detail(slug)
+                    closes = [tindex.rial_to_toman(r["close"]) for r in hist if r.get("close") is not None]
+                    volumes = [float(detail.get("trade_volume") or 0)] * len(closes)
+                    flow = [{"buy_I_Volume": detail.get("buy", {}).get("volume_real", 0), "buy_N_Volume": detail.get("buy", {}).get("volume_legal", 0), "sell_I_Volume": detail.get("sell", {}).get("volume_real", 0), "sell_N_Volume": detail.get("sell", {}).get("volume_legal", 0)}]
+                    provider_name = "Tindex"
+                    print(f"DATA PROVIDER FALLBACK | {provider_name} | reason={legacy_exc}")
+                except TindexError as tindex_exc:
+                    if not brs.available:
+                        raise TsetmcError(f"TSETMC unavailable; Tindex unavailable: {tindex_exc}")
+                    provider_name = "BrsApi"
                     raise legacy_exc
                 provider_name = "BrsApi"
                 symbol = cfg.symbol
@@ -155,7 +173,7 @@ def main():
                 + pos_text
             )
 
-    except (TsetmcError, ProviderError) as exc:
+    except (TsetmcError, ProviderError, TindexError) as exc:
         write_dashboard(
             {
                 "summary": {
