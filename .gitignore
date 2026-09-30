@@ -3,6 +3,5 @@ __pycache__/
 .venv/
 .env
 *.log
-data/*.json
 data/*.csv
 !data/.gitkeep
