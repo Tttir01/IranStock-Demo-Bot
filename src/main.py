@@ -5,6 +5,7 @@ from src.analysis.screener import market_rows,top_gainers,top_volume
 from src.dashboard.generate import write_dashboard
 from src.trading.paper_account import PaperAccount
 from src.trading.risk_manager import position_size,exit_reason
+from src.telegram_bot import send_message
 
 def main():
     cfg=Config(); client=TsetmcClient(cfg)
@@ -55,6 +56,21 @@ def main():
         write_dashboard(payload); account.save()
         print(f"IRAN STOCK PAPER | {symbol} | price={price:,.0f} | score={signal['score']} | signal={signal['action']} | paper={action}")
         print(f"Paper equity={snap['equity']:,.0f} | P/L={snap['realized_pnl']:,.0f} | DD={snap['max_drawdown_pct']:.2f}%")
+        if cfg.telegram_enabled:
+            position = snap.get("positions", {}).get(symbol)
+            pos_text = f"\nموقعیت: {position}" if position else "\nموقعیت باز: ندارد"
+            send_message(
+                "📊 ربات دمو بورس ایران\\n"
+                f"نماد: {symbol}\\n"
+                f"قیمت: {price:,.0f} تومان\\n"
+                f"سیگنال: {signal['action']} | امتیاز: {signal['score']}\\n"
+                f"عملیات دمو: {action}\\n"
+                f"دلیل: {reason}\\n"
+                f"سرمایه: {snap['equity']:,.0f} تومان\\n"
+                f"سود/زیان تحقق‌یافته: {snap['realized_pnl']:,.0f} تومان\\n"
+                f"افت سرمایه: {snap['max_drawdown_pct']:.2f}%"
+                + pos_text
+            )
     except TsetmcError as exc:
         write_dashboard({"summary":{"symbol":cfg.symbol,"price_toman":0},
                          "signal":{"score":0,"action":"UNAVAILABLE","reasons":[str(exc)]},
@@ -62,5 +78,5 @@ def main():
                          "top_gainers":[],"top_volume":[]})
         account.save()
         print(f"TSETMC UNAVAILABLE | {exc}")
-
+        if cfg.telegram_enabled:\n            send_message(f"⚠️ ربات دمو بورس ایران\\nدسترسی به داده‌های TSETMC در این اجرا برقرار نشد.\\nجزئیات: {exc}")\n
 if __name__=="__main__": main()
