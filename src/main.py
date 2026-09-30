@@ -1,5 +1,6 @@
 from src.config import Config
 from src.data.tsetmc_client import TsetmcClient,TsetmcError
+from src.data.brsapi_client import BrsApiProvider,ProviderError
 from src.analysis.signal_engine import score_signal
 from src.analysis.screener import market_rows,top_gainers,top_volume
 from src.dashboard.generate import write_dashboard
@@ -8,26 +9,46 @@ from src.trading.risk_manager import position_size,exit_reason
 from src.telegram_bot import send_message
 
 def main():
-    cfg=Config(); client=TsetmcClient(cfg)
+    cfg=Config()
+    client=TsetmcClient(cfg)
+    brs=BrsApiProvider(cfg.brs_api_key,cfg.brs_api_timeout)
     account=PaperAccount.load(initial_cash=cfg.initial_cash)
+    provider_name="TSETMC"
     try:
-        found=client.resolve_symbol(cfg.symbol)
-        ins=found.get("insCode") or found.get("InsCode")
-        symbol=found.get("lVal18AFC") or found.get("LVal18AFC") or cfg.symbol
-        hist=client.history(str(ins),120)
-        closes=[]; volumes=[]
+        try:
+            found=client.resolve_symbol(cfg.symbol)
+            ins=found.get("insCode") or found.get("InsCode")
+            symbol=found.get("lVal18AFC") or found.get("LVal18AFC") or cfg.symbol
+            hist=client.history(str(ins),120)
+            flow=client.client_type(str(ins))
+        except TsetmcError as primary_exc:
+            if not brs.available:
+                raise primary_exc
+            provider_name="BrsApi"
+            symbol=cfg.symbol
+            hist=brs.history(symbol,120)
+            flow=brs.client_type(symbol)
+            print(f"DATA PROVIDER FALLBACK | {provider_name} | reason={primary_exc}")
+
+        closes=[]
+        volumes=[]
         for row in hist:
-            p=row.get("pClosing") or row.get("pc") or row.get("closingPrice")
-            v=row.get("qTotTran5J") or row.get("volume") or row.get("zTotTran")
+            p=row.get("pClosing") or row.get("pc") or row.get("closingPrice") or row.get("pcp")
+            v=row.get("qTotTran5J") or row.get("tvol") or row.get("volume") or row.get("zTotTran")
             if p is not None:
-                closes.append(client.rial_to_toman(p)); volumes.append(float(v or 0))
-        price=closes[-1] if closes else 0
+                closes.append(client.rial_to_toman(p))
+                volumes.append(float(v or 0))
+        if not closes:
+            raise TsetmcError(f"{provider_name} returned no usable price history for {symbol}")
+
+        price=closes[-1]
         signal=score_signal(closes,volumes)
 
-        flow=client.client_type(str(ins))
         f=flow[0] if flow else {}
-        bi=float(f.get("buy_I_Volume") or 0); bn=float(f.get("buy_N_Volume") or 0)
-        si=float(f.get("sell_I_Volume") or 0); sn=float(f.get("sell_N_Volume") or 0)
+        bi=float(f.get("buy_I_Volume") or f.get("Buy_I_Volume") or 0)
+        bn=float(f.get("buy_N_Volume") or f.get("Buy_N_Volume") or 0)
+        si=float(f.get("sell_I_Volume") or f.get("Sell_I_Volume") or 0)
+        sn=float(f.get("sell_N_Volume") or f.get("Sell_N_Volume") or 0)
         ratio=bi/(bi+bn) if bi+bn else None
         signal=score_signal(closes,volumes,ratio)
 
@@ -42,47 +63,70 @@ def main():
         elif signal["action"]=="BUY":
             qty=position_size(account.cash,price,cfg.max_position_pct)
             if account.buy(symbol,price,qty,cfg.stop_loss_pct,cfg.take_profit_pct):
-                action="BUY"; reason=f"score={signal['score']}"
+                action="BUY"
+                reason=f"score={signal['score']}"
         account.update_risk({symbol:price})
 
-        try: rows=market_rows(client.market_watch())
-        except TsetmcError: rows=[]
+        try:
+            rows=market_rows(client.market_watch()) if provider_name=="TSETMC" else []
+        except TsetmcError:
+            rows=[]
+
         snap=account.snapshot({symbol:price})
-        payload={"summary":{"symbol":symbol,"price_toman":price},
-                 "signal":signal,"paper":snap,"paper_action":action,"paper_reason":reason,
-                 "flow":{"real_buy_volume":bi,"legal_buy_volume":bn,"real_sell_volume":si,
-                         "legal_sell_volume":sn,"real_buy_ratio":ratio},
-                 "top_gainers":top_gainers(rows),"top_volume":top_volume(rows)}
-        write_dashboard(payload); account.save()
-        print(f"IRAN STOCK PAPER | {symbol} | price={price:,.0f} | score={signal['score']} | signal={signal['action']} | paper={action}")
+        payload={
+            "summary":{"symbol":symbol,"price_toman":price,"provider":provider_name},
+            "signal":signal,
+            "paper":snap,
+            "paper_action":action,
+            "paper_reason":reason,
+            "flow":{
+                "real_buy_volume":bi,
+                "legal_buy_volume":bn,
+                "real_sell_volume":si,
+                "legal_sell_volume":sn,
+                "real_buy_ratio":ratio
+            },
+            "top_gainers":top_gainers(rows),
+            "top_volume":top_volume(rows)
+        }
+        write_dashboard(payload)
+        account.save()
+        print(f"IRAN STOCK PAPER | {symbol} | provider={provider_name} | price={price:,.0f} | score={signal['score']} | signal={signal['action']} | paper={action}")
         print(f"Paper equity={snap['equity']:,.0f} | P/L={snap['realized_pnl']:,.0f} | DD={snap['max_drawdown_pct']:.2f}%")
+
         if cfg.telegram_enabled:
-            position = snap.get("positions", {}).get(symbol)
-            pos_text = f"\nموقعیت: {position}" if position else "\nموقعیت باز: ندارد"
+            position=snap.get("positions",{}).get(symbol)
+            pos_text=f"\nموقعیت: {position}" if position else "\nموقعیت باز: ندارد"
             send_message(
-                "📊 ربات دمو بورس ایران\\n"
-                f"نماد: {symbol}\\n"
-                f"قیمت: {price:,.0f} تومان\\n"
-                f"سیگنال: {signal['action']} | امتیاز: {signal['score']}\\n"
-                f"عملیات دمو: {action}\\n"
-                f"دلیل: {reason}\\n"
-                f"سرمایه: {snap['equity']:,.0f} تومان\\n"
-                f"سود/زیان تحقق‌یافته: {snap['realized_pnl']:,.0f} تومان\\n"
+                "📊 ربات دمو بورس ایران\n"
+                f"منبع داده: {provider_name}\n"
+                f"نماد: {symbol}\n"
+                f"قیمت: {price:,.0f} تومان\n"
+                f"سیگنال: {signal['action']} | امتیاز: {signal['score']}\n"
+                f"عملیات دمو: {action}\n"
+                f"دلیل: {reason}\n"
+                f"سرمایه: {snap['equity']:,.0f} تومان\n"
+                f"سود/زیان تحقق‌یافته: {snap['realized_pnl']:,.0f} تومان\n"
                 f"افت سرمایه: {snap['max_drawdown_pct']:.2f}%"
                 + pos_text
             )
-    except TsetmcError as exc:
-        write_dashboard({"summary":{"symbol":cfg.symbol,"price_toman":0},
-                         "signal":{"score":0,"action":"UNAVAILABLE","reasons":[str(exc)]},
-                         "paper":account.snapshot(),"paper_action":"NONE",
-                         "top_gainers":[],"top_volume":[]})
+    except (TsetmcError,ProviderError) as exc:
+        write_dashboard({
+            "summary":{"symbol":cfg.symbol,"price_toman":0,"provider":"UNAVAILABLE"},
+            "signal":{"score":0,"action":"UNAVAILABLE","reasons":[str(exc)]},
+            "paper":account.snapshot(),
+            "paper_action":"NONE",
+            "top_gainers":[],
+            "top_volume":[]
+        })
         account.save()
-        print(f"TSETMC UNAVAILABLE | {exc}")
+        print(f"MARKET DATA UNAVAILABLE | {exc}")
         if cfg.telegram_enabled:
             send_message(
                 "⚠️ ربات دمو بورس ایران\n"
-                "دسترسی به داده‌های TSETMC در این اجرا برقرار نشد.\n"
+                "داده معتبر بازار در این اجرا دریافت نشد؛ هیچ معامله DEMO انجام نشد.\n"
                 f"جزئیات: {exc}"
             )
 
-if __name__=="__main__": main()
+if __name__=="__main__":
+    main()
