@@ -41,26 +41,31 @@ def main():
                 try:
                     if not tindex.available:
                         raise TindexError("TINDEX_API_KEY is not configured")
-                    found = tindex.resolve(cfg.symbol)
-                    slug = found["slug"]
-                    symbol = found.get("ticker") or cfg.symbol
-                    hist = tindex.history(slug, "3m")
-                    detail = tindex.detail(slug)
-                    closes = [tindex.rial_to_toman(r["close"]) for r in hist if r.get("close") is not None]
-                    volumes = [float(detail.get("trade_volume") or 0)] * len(closes)
-                    flow = [{"buy_I_Volume": detail.get("buy", {}).get("volume_real", 0), "buy_N_Volume": detail.get("buy", {}).get("volume_legal", 0), "sell_I_Volume": detail.get("sell", {}).get("volume_real", 0), "sell_N_Volume": detail.get("sell", {}).get("volume_legal", 0)}]
+                    tdata = tindex.market_data(cfg.symbol, "3m")
+                    symbol = tdata["symbol"]
+                    hist = tdata["history"]
+                    flow = tdata.get("flow", [])
                     provider_name = "Tindex"
-                    print(f"DATA PROVIDER FALLBACK | {provider_name} | reason={legacy_exc}")
+                    print(
+                        f"DATA PROVIDER FALLBACK | {provider_name} | "
+                        f"reason={legacy_exc} | "
+                        f"endpoint=stock-market/symbol/{symbol}/candles"
+                    )
                 except TindexError as tindex_exc:
                     if not brs.available:
-                        raise TsetmcError(f"TSETMC unavailable; Tindex unavailable: {tindex_exc}")
+                        raise TsetmcError(
+                            f"TSETMC unavailable; Tindex unavailable: {tindex_exc}"
+                        )
                     provider_name = "BrsApi"
                     raise legacy_exc
                 provider_name = "BrsApi"
                 symbol = cfg.symbol
                 hist = brs.history(symbol, 120)
                 flow = brs.client_type(symbol)
-                print(f"DATA PROVIDER FALLBACK | {provider_name} | reason={legacy_exc}")
+                print(
+                    f"DATA PROVIDER FALLBACK | {provider_name} | "
+                    f"reason={legacy_exc}"
+                )
 
         closes = []
         volumes = []
