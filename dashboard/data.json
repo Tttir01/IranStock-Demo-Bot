@@ -8,7 +8,7 @@
     "score": 0,
     "action": "UNAVAILABLE",
     "reasons": [
-      "TSETMC unavailable; Tindex unavailable: Tindex request failed: 410 Client Error: Gone for url: https://tindex.app/api/public/stock-market/symbol/%D9%81%D9%88%D9%84%D8%A7%D8%AF/candles?range=3m&interval=daily"
+      "TSETMC unavailable; Tindex unavailable: Tindex request failed: 410 Client Error: Gone for url: https://tindex.app/api/public/stocks/by-category/stock-energy?q=%D9%81%D9%88%D9%84%D8%A7%D8%AF&page=1&per_page=20"
     ]
   },
   "paper": {
@@ -22,5 +22,5 @@
   "paper_action": "NONE",
   "top_gainers": [],
   "top_volume": [],
-  "generated_at": "2026-09-30T16:50:47.083611+00:00"
+  "generated_at": "2026-09-30T16:59:55.383379+00:00"
 }
