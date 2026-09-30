@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from urllib.parse import quote
 
 import requests
@@ -10,9 +12,10 @@ class TindexError(RuntimeError):
 
 
 class TindexProvider:
-    """Tindex public API provider using the current stock-market endpoints."""
+    """Tindex public API provider for Tehran Stock Exchange data."""
 
     BASE = "https://tindex.app/api/public"
+    CACHE_FILE = Path("data/tindex-symbols.json")
 
     def __init__(self, api_key: str, timeout: int = 12):
         self.api_key = api_key.strip()
@@ -50,85 +53,127 @@ class TindexProvider:
             raise TindexError(str(message or "Tindex rejected request"))
         return payload.get("data")
 
-    def market_data(self, symbol: str, range_: str = "3m"):
-        """
-        Fetch the current stock price series using the current Tindex endpoint.
+    def _load_slugs(self):
+        try:
+            if self.CACHE_FILE.exists():
+                data = json.loads(self.CACHE_FILE.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    return data
+        except (OSError, ValueError):
+            pass
+        return {}
 
-        The current API accepts the Persian ticker directly here:
-        /api/public/stock-market/symbol/{slug}/candles
+    def _save_slugs(self, data):
+        try:
+            self.CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+            self.CACHE_FILE.write_text(
+                json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+        except OSError as exc:
+            raise TindexError(f"Could not save Tindex symbol cache: {exc}") from exc
 
-        One API call is deliberately used per run because the free Tindex plan
-        is rate-limited to one request per minute.
+    def resolve(self, symbol):
+        """Resolve Persian ticker to Tindex stock slug.
+
+        This consumes one API request. The result is persisted so later runs
+        can use the one-request-per-minute free-plan quota for history only.
         """
-        slug = quote(symbol.strip(), safe="")
+        symbol = symbol.strip()
+        cached = self._load_slugs().get(symbol)
+        if cached:
+            return cached
+
         data = self._get(
-            f"/stock-market/symbol/{slug}/candles",
-            {"range": range_, "interval": "daily"},
+            "/stocks/by-category/stock-energy",
+            {"q": symbol, "page": 1, "per_page": 20},
         )
-        if not isinstance(data, dict):
-            raise TindexError("Unexpected Tindex candles response")
+        rows = data if isinstance(data, list) else (data or {}).get("rows", [])
+        if not isinstance(rows, list):
+            rows = []
 
-        closes = data.get("c") or []
-        timestamps = data.get("t") or []
-        if len(closes) < 30:
+        exact = None
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            ticker = str(row.get("ticker") or row.get("symbol") or "").strip()
+            name = str(row.get("name") or "").strip()
+            if ticker == symbol or symbol == name:
+                exact = row
+                break
+
+        exact = exact or (rows[0] if rows else None)
+        if not exact:
+            raise TindexError(f"Tindex stock not found: {symbol}")
+
+        slug = exact.get("slug")
+        if not slug:
+            raise TindexError(f"Tindex returned no slug for stock: {symbol}")
+
+        cache = self._load_slugs()
+        cache[symbol] = str(slug)
+        self._save_slugs(cache)
+        return str(slug)
+
+    def market_data(self, symbol: str, range_: str = "3m"):
+        """Fetch stock history using the documented stock slug endpoint."""
+        symbol = symbol.strip()
+        slugs = self._load_slugs()
+        slug = slugs.get(symbol)
+
+        if not slug:
+            slug = self.resolve(symbol)
             raise TindexError(
-                f"Tindex returned insufficient history for {symbol}: {len(closes)} points"
+                f"Tindex symbol resolved to {slug}; history will be fetched on the next run "
+                "to respect the free-plan one-request-per-minute limit"
             )
 
-        dates = []
-        previous = 0
-        for raw in timestamps:
-            try:
-                value = int(raw)
-            except (TypeError, ValueError):
-                value = 0
-            # Tindex delta-encodes timestamps from the second element onward.
-            if dates:
-                value += previous
-            previous = value
-            dates.append(str(value))
+        data = self._get(
+            f"/stocks/{quote(str(slug), safe='')}/history",
+            {"range": range_},
+        )
+        if not isinstance(data, dict):
+            raise TindexError("Unexpected Tindex stock history response")
 
-        history = [
-            {
-                "dEven": dates[i] if i < len(dates) else "",
-                "pClosing": closes[i],
-                "qTotTran5J": 0,
-            }
-            for i in range(len(closes))
-        ]
+        closes = data.get("points") or data.get("prices") or data.get("close") or []
+        dates = data.get("dates") or []
+        if not isinstance(closes, list) or len(closes) < 30:
+            raise TindexError(
+                f"Tindex returned insufficient history for {symbol}: {len(closes) if isinstance(closes, list) else 0} points"
+            )
+
+        history = []
+        for i, close in enumerate(closes):
+            history.append(
+                {
+                    "dEven": str(dates[i]) if i < len(dates) else "",
+                    "pClosing": close,
+                    "qTotTran5J": 0,
+                }
+            )
 
         return {
             "symbol": symbol,
-            "slug": data.get("slug") or symbol,
-            "unit": data.get("unit") or "ریال",
+            "slug": str(slug),
+            "unit": data.get("unit") or "تومان",
             "history": history,
             "flow": [],
             "source": data.get("source") or "Tindex",
         }
 
-    # Compatibility helpers for older callers. New code should use market_data().
-    def resolve(self, symbol):
-        raise TindexError(
-            "Tindex stock screener endpoint was replaced; use market_data()"
-        )
-
     def history(self, slug, range_="3m"):
-        encoded = quote(str(slug), safe="")
         data = self._get(
-            f"/stock-market/symbol/{encoded}/candles",
-            {"range": range_, "interval": "daily"},
+            f"/stocks/{quote(str(slug), safe='')}/history",
+            {"range": range_},
         )
         if not isinstance(data, dict):
-            raise TindexError("Unexpected Tindex candles response")
-        closes = data.get("c") or []
+            raise TindexError("Unexpected Tindex stock history response")
+        closes = data.get("points") or data.get("prices") or data.get("close") or []
         return [{"close": value} for value in closes]
 
     def detail(self, slug):
         encoded = quote(str(slug), safe="")
-        data = self._get(f"/stock-market/symbol/{encoded}/overview")
-        if not isinstance(data, dict):
-            raise TindexError("Unexpected Tindex overview response")
-        return data
+        return self._get(f"/stocks/{encoded}")
 
     @staticmethod
     def rial_to_toman(value):
