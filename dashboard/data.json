@@ -8,7 +8,7 @@
     "score": 0,
     "action": "UNAVAILABLE",
     "reasons": [
-      "HTTPSConnectionPool(host='cdn10.tsetmc.com', port=443): Max retries exceeded with url: /api/Instrument/GetInstrumentSearch/%D9%81%D9%88%D9%84%D8%A7%D8%AF (Caused by NameResolutionError(\"HTTPSConnection(host='cdn10.tsetmc.com', port=443): Failed to resolve 'cdn10.tsetmc.com' ([Errno -2] Name or service not known)\"))"
+      "HTTPSConnectionPool(host='tsetmc.com', port=443): Max retries exceeded with url: /tsev2/data/search.aspx?skey=%D9%81%D9%88%D9%84%D8%A7%D8%AF (Caused by ConnectTimeoutError(<HTTPSConnection(host='tsetmc.com', port=443) at 0x7fc299f7c230>, 'Connection to tsetmc.com timed out. (connect timeout=10)'))"
     ]
   },
   "paper": {
@@ -22,5 +22,5 @@
   "paper_action": "NONE",
   "top_gainers": [],
   "top_volume": [],
-  "generated_at": "2026-09-30T08:11:02.703235+00:00"
+  "generated_at": "2026-09-30T08:18:24.873399+00:00"
 }
