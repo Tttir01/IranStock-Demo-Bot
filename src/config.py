@@ -11,6 +11,8 @@ class Config:
     min_score: int = int(os.getenv("MIN_SIGNAL_SCORE", "80"))
     request_timeout: int = int(os.getenv("TSETMC_TIMEOUT", "8"))
     retries: int = int(os.getenv("TSETMC_RETRIES", "1"))
+    brs_api_key: str = os.getenv("BRS_API_KEY", "")
+    brs_api_timeout: int = int(os.getenv("BRS_API_TIMEOUT", "10"))
     telegram_enabled: bool = os.getenv("TELEGRAM_ENABLED", "true").lower() == "true"
     @property
     def headers(self):
