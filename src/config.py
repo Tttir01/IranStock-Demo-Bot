@@ -13,6 +13,8 @@ class Config:
     retries: int = int(os.getenv("TSETMC_RETRIES", "1"))
     brs_api_key: str = os.getenv("BRS_API_KEY", "")
     brs_api_timeout: int = int(os.getenv("BRS_API_TIMEOUT", "10"))
+    tindex_api_key: str = os.getenv("TINDEX_API_KEY", "")
+    tindex_api_timeout: int = int(os.getenv("TINDEX_API_TIMEOUT", "12"))
     telegram_enabled: bool = os.getenv("TELEGRAM_ENABLED", "true").lower() == "true"
     @property
     def headers(self):
