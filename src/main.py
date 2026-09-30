@@ -26,7 +26,6 @@ def main():
             hist = client.history(str(ins), 120)
             flow = client.client_type(str(ins))
         except TsetmcError as primary_exc:
-            # First fallback: legacy public TSETMC endpoints, no API key.
             try:
                 found = client.legacy_search(cfg.symbol)
                 if not found:
@@ -49,23 +48,22 @@ def main():
                     print(
                         f"DATA PROVIDER FALLBACK | {provider_name} | "
                         f"reason={legacy_exc} | "
-                        f"endpoint=stock-market/symbol/{symbol}/candles"
+                        f"endpoint=stocks/{tdata.get('slug')}/history"
                     )
                 except TindexError as tindex_exc:
-                    if not brs.available:
+                    if brs.available:
+                        provider_name = "BrsApi"
+                        symbol = cfg.symbol
+                        hist = brs.history(symbol, 120)
+                        flow = brs.client_type(symbol)
+                        print(
+                            f"DATA PROVIDER FALLBACK | {provider_name} | "
+                            f"reason={tindex_exc}"
+                        )
+                    else:
                         raise TsetmcError(
                             f"TSETMC unavailable; Tindex unavailable: {tindex_exc}"
-                        )
-                    provider_name = "BrsApi"
-                    raise legacy_exc
-                provider_name = "BrsApi"
-                symbol = cfg.symbol
-                hist = brs.history(symbol, 120)
-                flow = brs.client_type(symbol)
-                print(
-                    f"DATA PROVIDER FALLBACK | {provider_name} | "
-                    f"reason={legacy_exc}"
-                )
+                        ) from tindex_exc
 
         closes = []
         volumes = []
@@ -75,6 +73,7 @@ def main():
                 or row.get("pc")
                 or row.get("closingPrice")
                 or row.get("pcp")
+                or row.get("close")
             )
             v = (
                 row.get("qTotTran5J")
@@ -83,7 +82,11 @@ def main():
                 or row.get("zTotTran")
             )
             if p is not None:
-                closes.append(client.rial_to_toman(p))
+                if provider_name == "Tindex":
+                    # Current Tindex stock API reports stock prices in toman.
+                    closes.append(float(p))
+                else:
+                    closes.append(client.rial_to_toman(p))
                 volumes.append(float(v or 0))
 
         if not closes:
