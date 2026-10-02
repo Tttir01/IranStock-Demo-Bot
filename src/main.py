@@ -42,6 +42,12 @@ def main():
                     "revenue_growth_pct": eps_info.get("revenueGrowthPct") or eps_info.get("revenue_growth_pct"),
                     "profit_growth_pct": eps_info.get("profitGrowthPct") or eps_info.get("profit_growth_pct"),
                 }
+                try:
+                    codal_filings = client.codal_prepared(str(ins), 10)
+                    if not isinstance(codal_filings, list):
+                        codal_filings = []
+                except TsetmcError as exc:
+                    print(f"CODAL METADATA UNAVAILABLE | {exc}")
             except TsetmcError as exc:
                 print(f"FUNDAMENTAL DATA UNAVAILABLE | {exc}")
             flow = client.client_type(str(ins))
@@ -244,6 +250,7 @@ def main():
                 f"• ROE: {signal.get('fundamental', {}).get('roe') if signal.get('fundamental', {}).get('roe') is not None else 'در دسترس نیست'}٪\n"
                 f"• ROA: {signal.get('fundamental', {}).get('roa') if signal.get('fundamental', {}).get('roa') is not None else 'در دسترس نیست'}٪\n"
                 f"• امتیاز فاندامنتال: {b.get('fundamental', 0):+d} / 20\n"
+                f"• اطلاعیه‌های اخیر کدال: {len(codal_filings)} مورد\n"
                 f"• حجم جاری: {current_volume_text}\n"
                 f"• نسبت حجم: {volume_text}\n\n"
                 "💧 حقیقی/حقوقی\n"
