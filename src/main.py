@@ -101,7 +101,7 @@ def main():
         si = float(f.get("sell_I_Volume") or f.get("Sell_I_Volume") or 0)
         sn = float(f.get("sell_N_Volume") or f.get("Sell_N_Volume") or 0)
         ratio = bi / (bi + bn) if bi + bn else None
-        signal = score_signal(closes, volumes, ratio)
+        signal = score_signal(closes, volumes, ratio, cfg.min_score)
 
         action = "HOLD"
         reason = "بدون معامله"
