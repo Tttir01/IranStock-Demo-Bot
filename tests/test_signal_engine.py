@@ -51,6 +51,7 @@ def test_signal_contains_full_analysis():
         "rsi_divergence",
         "macd_divergence",
         "reversal_confirmation",
+        "fundamental",
     }
     assert 0 <= result["trend_strength"] <= 100
     assert result["rsi_divergence"] in {"none", "bullish", "bearish"}
@@ -83,3 +84,61 @@ def test_missing_volume_is_not_reported_as_zero():
     assert result["volume"] is None
     assert result["avg_volume_20"] is None
     assert result["volume_ratio"] is None
+
+
+def test_fundamental_positive_growth_and_valuation():
+    prices = [100 + i * 0.4 for i in range(80)]
+    result = score_signal(
+        prices,
+        [1000] * 80,
+        min_score=80,
+        fundamentals={
+            "eps": 100,
+            "estimated_eps": 130,
+            "pe": 6,
+            "sector_pe": 10,
+            "psr": 1.5,
+            "pb": 1.0,
+            "roe": 25,
+            "roa": 12,
+            "revenue_growth_pct": 25,
+            "profit_growth_pct": 30,
+            "debt_to_equity": 0.4,
+        },
+    )
+    assert result["fundamental"]["score"] > 0
+    assert result["fundamental"]["eps_growth_pct"] == 30.0
+    assert result["fundamental"]["pe"] == 6.0
+    assert result["fundamental"]["pb"] == 1.0
+
+
+def test_fundamental_negative_quality_is_penalized():
+    prices = [100 + i * 0.4 for i in range(80)]
+    result = score_signal(
+        prices,
+        [1000] * 80,
+        fundamentals={
+            "eps": -50,
+            "estimated_eps": -70,
+            "pe": 25,
+            "sector_pe": 12,
+            "psr": 9,
+            "pb": 5,
+            "roe": 2,
+            "roa": 1,
+            "revenue_growth_pct": -25,
+            "profit_growth_pct": -30,
+            "debt_to_equity": 2.5,
+        },
+    )
+    assert result["fundamental"]["score"] < 0
+    assert result["fundamental"]["breakdown"]["leverage"] == -3
+
+
+def test_fundamental_missing_data_is_explicit():
+    result = score_signal([100 + i * 0.5 for i in range(80)], [1000] * 80)
+    f = result["fundamental"]
+    assert f["eps"] is None
+    assert f["pe"] is None
+    assert "P/B در دسترس نیست" in f["reasons"]
+    assert "ROE/ROA در دسترس نیست" in f["reasons"]
