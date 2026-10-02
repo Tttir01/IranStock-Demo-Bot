@@ -104,19 +104,33 @@ class TindexProvider:
         # The public history table contains five numeric columns after date:
         # Open, High, Low, Close, Change. Ignore rows containing dashes.
         row_pattern = re.compile(
-            r"<tr[^>]*>\\s*"
-            r"<td[^>]*>(.*?)</td>\\s*"
-            r"<td[^>]*>(.*?)</td>\\s*"
-            r"<td[^>]*>(.*?)</td>\\s*"
-            r"<td[^>]*>(.*?)</td>\\s*"
-            r"<td[^>]*>(.*?)</td>\\s*"
+            r"<tr[^>]*>\s*"
+            r"<td[^>]*>(.*?)</td>\s*"
+            r"<td[^>]*>(.*?)</td>\s*"
+            r"<td[^>]*>(.*?)</td>\s*"
+            r"<td[^>]*>(.*?)</td>\s*"
+            r"<td[^>]*>(.*?)</td>\s*"
             r"<td[^>]*>(.*?)</td>",
             re.I | re.S,
         )
 
         def clean(value):
             value = re.sub(r"<[^>]+>", "", value)
-            value = value.replace("\u066c", "").replace(",", "").strip()
+            value = unescape(value).strip()
+            # Tindex renders Persian/Arabic digits and Arabic thousands
+            # separators in the public HTML table.
+            digit_map = str.maketrans(
+                "۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩",
+                "01234567890123456789",
+            )
+            value = value.translate(digit_map)
+            value = (
+                value.replace("\u066c", "")
+                .replace("\u066b", ".")
+                .replace(",", "")
+                .replace("٬", "")
+                .strip()
+            )
             value = value.replace("−", "-")
             return value
 
@@ -125,7 +139,7 @@ class TindexProvider:
             if len(cells) < 6:
                 continue
             date_text = cells[0]
-            if not re.search(r"\\d", date_text):
+            if not re.search(r"\d", date_text):
                 continue
             try:
                 o = float(cells[1])
