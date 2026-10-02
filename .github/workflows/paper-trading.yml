@@ -1,24 +1,36 @@
 name: Iran Stock Paper Trading
+
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
   schedule:
     - cron: "*/30 * * * *"
+
+concurrency:
+  group: iran-stock-paper-trading
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
 jobs:
   paper:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -r requirements.txt
-      - run: pytest -q
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest -q
+
       - name: Run paper trading and dashboard
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -29,18 +41,19 @@ jobs:
           TINDEX_API_KEY: ${{ secrets.TINDEX_API_KEY }}
           TINDEX_API_TIMEOUT: "12"
         run: python -m src.main
+
       - name: Commit paper state
-        if: github.actor != 'github-actions[bot]'
         run: |
           git config user.name "IranStock Demo Bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/paper-account.json dashboard/data.json data/tindex-symbols.json
-          if ! git diff --cached --quiet; then
-            git commit -m "Update paper trading state"
+          git add -A data dashboard
+          if git diff --cached --quiet; then
+            echo "No state/dashboard changes to commit."
+            exit 0
           fi
-          git fetch origin main
-          git rebase origin/main
+          git commit -m "Update paper trading state"
           git push origin HEAD:main
+
       - name: Upload dashboard
         uses: actions/upload-artifact@v4
         with:
