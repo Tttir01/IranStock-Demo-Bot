@@ -116,6 +116,12 @@ class TsetmcClient:
             "marketwatch",
         )
 
+    def instrument_info(self, ins_code):
+        return self._unwrap(
+            self._get(f"/Instrument/GetInstrumentInfo/{ins_code}"),
+            "instrumentInfo",
+        )
+
     def quote(self, ins_code):
         return self._unwrap(
             self._get(f"/ClosingPrice/GetClosingPriceInfo/{ins_code}"),
