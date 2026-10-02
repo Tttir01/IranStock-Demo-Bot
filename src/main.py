@@ -87,7 +87,12 @@ def main():
                     closes.append(float(p))
                 else:
                     closes.append(client.rial_to_toman(p))
-                volumes.append(float(v or 0))
+                if v is not None:
+                    try:
+                        if float(v) > 0:
+                            volumes.append(float(v))
+                    except (TypeError, ValueError):
+                        pass
 
         if not closes:
             raise TsetmcError(
@@ -177,7 +182,11 @@ def main():
             volume_text = (
                 f"{volume_ratio:.2f}x میانگین ۲۰روزه"
                 if volume_ratio is not None
-                else "نامشخص"
+                else "حجم تاریخی در دسترس نیست"
+            )
+            current_volume = signal.get("volume")
+            current_volume_text = (
+                f"{current_volume:,.0f}" if current_volume is not None else "در دسترس نیست"
             )
             flow_text = (
                 f"{ratio * 100:.1f}% خرید حقیقی"
@@ -197,13 +206,17 @@ def main():
                 "📈 وضعیت روند\n"
                 f"• روند: {signal.get('trend', 'نامشخص')}\n"
                 f"• EMA9: {signal.get('ema9', 0):,.2f}\n"
-                f"• EMA21: {signal.get('ema21', 0):,.2f}\n\n"
+                f"• EMA21: {signal.get('ema21', 0):,.2f}\n"
+                f"• قدرت روند: {signal.get('trend_strength', 0):.1f}/100 | {signal.get('trend_strength_status', 'نامشخص')}\n\n"
                 "📊 اندیکاتورها\n"
                 f"• RSI14: {signal.get('rsi', 0):.2f} | {signal.get('rsi_status', 'نامشخص')}\n"
                 f"• MACD: {signal.get('macd', 0):.4f}\n"
                 f"• خط سیگنال: {signal.get('macd_signal', 0):.4f}\n"
                 f"• وضعیت MACD: {signal.get('macd_state', 'نامشخص')}\n"
-                f"• حجم: {signal.get('volume', 0):,.0f}\n"
+                f"• واگرایی RSI: {signal.get('rsi_divergence', 'ندارد')}\n"
+                f"• واگرایی MACD: {signal.get('macd_divergence', 'ندارد')}\n"
+                f"• تأیید برگشت از اشباع فروش: {'بله' if signal.get('reversal_confirmation') else 'خیر'}\n"
+                f"• حجم جاری: {current_volume_text}\n"
                 f"• نسبت حجم: {volume_text}\n\n"
                 "💧 حقیقی/حقوقی\n"
                 f"• {flow_text}\n\n"
@@ -214,6 +227,10 @@ def main():
                 f"• RSI: {b.get('rsi', 0):+d}\n"
                 f"• حجم: {b.get('volume', 0):+d}\n"
                 f"• حقیقی/حقوقی: {b.get('flow', 0):+d}\n"
+                f"• قدرت روند: {b.get('trend_strength', 0):+d}\n"
+                f"• واگرایی RSI: {b.get('rsi_divergence', 0):+d}\n"
+                f"• واگرایی MACD: {b.get('macd_divergence', 0):+d}\n"
+                f"• تأیید برگشت: {b.get('reversal_confirmation', 0):+d}\n"
                 f"➡️ امتیاز نهایی: {signal['score']} / 100\n"
                 f"حداقل امتیاز خرید: {signal.get('min_score', cfg.min_score)}\n\n"
                 "🧠 دلایل تحلیل\n"
