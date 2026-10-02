@@ -8,7 +8,7 @@
     "score": 0,
     "action": "UNAVAILABLE",
     "reasons": [
-      "TSETMC unavailable; Tindex unavailable: Tindex request failed: 410 Client Error: Gone for url: https://tindex.app/api/public/stocks/by-category/stock-energy?q=%D9%81%D9%88%D9%84%D8%A7%D8%AF&page=1&per_page=20"
+      "TSETMC unavailable; Tindex unavailable: Tindex public history returned only 0 usable rows for فولاد"
     ]
   },
   "paper": {
@@ -23,5 +23,5 @@
   "paper_action": "NONE",
   "top_gainers": [],
   "top_volume": [],
-  "generated_at": "2026-10-02T10:38:38.488551+00:00"
+  "generated_at": "2026-10-02T10:45:14.942540+00:00"
 }
