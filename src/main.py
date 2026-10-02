@@ -18,6 +18,7 @@ def main():
     account = PaperAccount.load(initial_cash=cfg.initial_cash)
     provider_name = "TSETMC"
     fundamentals = {}
+    codal_filings = []
 
     try:
         try:
