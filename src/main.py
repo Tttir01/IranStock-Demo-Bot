@@ -33,6 +33,14 @@ def main():
                     "estimated_eps": eps_info.get("estimatedEPS"),
                     "sector_pe": eps_info.get("sectorPE"),
                     "psr": eps_info.get("psr"),
+                    # Optional fields are accepted when the upstream endpoint
+                    # exposes them; missing values are explicitly left empty.
+                    "pb": eps_info.get("pb") or eps_info.get("pB"),
+                    "roe": eps_info.get("roe") or eps_info.get("ROE"),
+                    "roa": eps_info.get("roa") or eps_info.get("ROA"),
+                    "debt_to_equity": eps_info.get("debtToEquity") or eps_info.get("debt_to_equity"),
+                    "revenue_growth_pct": eps_info.get("revenueGrowthPct") or eps_info.get("revenue_growth_pct"),
+                    "profit_growth_pct": eps_info.get("profitGrowthPct") or eps_info.get("profit_growth_pct"),
                 }
             except TsetmcError as exc:
                 print(f"FUNDAMENTAL DATA UNAVAILABLE | {exc}")
@@ -230,6 +238,12 @@ def main():
                 f"• تأیید برگشت از اشباع فروش: {'بله' if signal.get('reversal_confirmation') else 'خیر'}\n"
                 f"• EPS: {signal.get('fundamental', {}).get('eps') if signal.get('fundamental', {}).get('eps') is not None else 'در دسترس نیست'}\n"
                 f"• P/E: {signal.get('fundamental', {}).get('pe') if signal.get('fundamental', {}).get('pe') is not None else 'در دسترس نیست'}\n"
+                f"• P/E صنعت: {signal.get('fundamental', {}).get('sector_pe') if signal.get('fundamental', {}).get('sector_pe') is not None else 'در دسترس نیست'}\n"
+                f"• P/B: {signal.get('fundamental', {}).get('pb') if signal.get('fundamental', {}).get('pb') is not None else 'در دسترس نیست'}\n"
+                f"• رشد EPS: {signal.get('fundamental', {}).get('eps_growth_pct') if signal.get('fundamental', {}).get('eps_growth_pct') is not None else 'در دسترس نیست'}٪\n"
+                f"• ROE: {signal.get('fundamental', {}).get('roe') if signal.get('fundamental', {}).get('roe') is not None else 'در دسترس نیست'}٪\n"
+                f"• ROA: {signal.get('fundamental', {}).get('roa') if signal.get('fundamental', {}).get('roa') is not None else 'در دسترس نیست'}٪\n"
+                f"• امتیاز فاندامنتال: {b.get('fundamental', 0):+d} / 20\n"
                 f"• حجم جاری: {current_volume_text}\n"
                 f"• نسبت حجم: {volume_text}\n\n"
                 "💧 حقیقی/حقوقی\n"
