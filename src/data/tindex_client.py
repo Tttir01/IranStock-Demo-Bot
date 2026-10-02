@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import re
+from html import unescape
 from pathlib import Path
 from urllib.parse import quote
 
@@ -12,14 +14,27 @@ class TindexError(RuntimeError):
 
 
 class TindexProvider:
-    """Tindex public API provider for Tehran Stock Exchange data."""
+    """Tindex provider with API-first and website-history fallback.
+
+    Tindex changed its public stock API surface; the older
+    /api/public/stocks/by-category/... route now returns HTTP 410.
+    The public stock pages remain available and expose daily history.
+    """
 
     BASE = "https://tindex.app/api/public"
+    WEB_BASE = "https://tindex.app/stocks"
     CACHE_FILE = Path("data/tindex-symbols.json")
 
     def __init__(self, api_key: str, timeout: int = 12):
         self.api_key = api_key.strip()
         self.timeout = timeout
+        self.session = requests.Session()
+        self.session.headers.update(
+            {
+                "Accept": "application/json,text/html",
+                "User-Agent": "IranStock-Demo-Bot/2.0",
+            }
+        )
 
     @property
     def available(self):
@@ -29,18 +44,25 @@ class TindexProvider:
         if not self.available:
             raise TindexError("TINDEX_API_KEY is not configured")
         try:
-            response = requests.get(
+            response = self.session.get(
                 self.BASE + path,
                 params=params or {},
                 timeout=self.timeout,
                 headers={
                     "Authorization": f"Bearer {self.api_key}",
                     "Accept": "application/json",
-                    "User-Agent": "IranStock-Demo-Bot/1.0",
+                    "User-Agent": "IranStock-Demo-Bot/2.0",
                 },
             )
+            if response.status_code == 410:
+                raise TindexError(
+                    "Tindex stock API route was retired (HTTP 410); "
+                    "using public stock-page history fallback"
+                )
             response.raise_for_status()
             payload = response.json()
+        except TindexError:
+            raise
         except (requests.RequestException, ValueError) as exc:
             raise TindexError(f"Tindex request failed: {exc}") from exc
 
@@ -73,107 +95,145 @@ class TindexProvider:
         except OSError as exc:
             raise TindexError(f"Could not save Tindex symbol cache: {exc}") from exc
 
-    def resolve(self, symbol):
-        """Resolve Persian ticker to Tindex stock slug.
+    @staticmethod
+    def _parse_history_html(html):
+        """Extract date/open/high/low/close rows from Tindex history HTML."""
+        html = unescape(html)
+        rows = []
 
-        This consumes one API request. The result is persisted so later runs
-        can use the one-request-per-minute free-plan quota for history only.
+        # The public history table contains five numeric columns after date:
+        # Open, High, Low, Close, Change. Ignore rows containing dashes.
+        row_pattern = re.compile(
+            r"<tr[^>]*>\\s*"
+            r"<td[^>]*>(.*?)</td>\\s*"
+            r"<td[^>]*>(.*?)</td>\\s*"
+            r"<td[^>]*>(.*?)</td>\\s*"
+            r"<td[^>]*>(.*?)</td>\\s*"
+            r"<td[^>]*>(.*?)</td>\\s*"
+            r"<td[^>]*>(.*?)</td>",
+            re.I | re.S,
+        )
+
+        def clean(value):
+            value = re.sub(r"<[^>]+>", "", value)
+            value = value.replace("\u066c", "").replace(",", "").strip()
+            value = value.replace("−", "-")
+            return value
+
+        for match in row_pattern.finditer(html):
+            cells = [clean(x) for x in match.groups()]
+            if len(cells) < 6:
+                continue
+            date_text = cells[0]
+            if not re.search(r"\\d", date_text):
+                continue
+            try:
+                o = float(cells[1])
+                h = float(cells[2])
+                low = float(cells[3])
+                close = float(cells[4])
+            except ValueError:
+                continue
+            rows.append(
+                {
+                    "dEven": date_text,
+                    "open": o,
+                    "high": h,
+                    "low": low,
+                    "close": close,
+                    "pClosing": close,
+                    "qTotTran5J": 0,
+                }
+            )
+        return rows
+
+    def _web_history(self, symbol, pages=8):
+        """Fetch enough public history pages to provide >=30 daily closes."""
+        symbol = symbol.strip()
+        all_rows = []
+        seen = set()
+
+        for page in range(1, pages + 1):
+            url = f"{self.WEB_BASE}/{quote(symbol, safe='')}/history/"
+            params = {} if page == 1 else {"page": page}
+            try:
+                response = self.session.get(url, params=params, timeout=self.timeout)
+                response.raise_for_status()
+            except requests.RequestException as exc:
+                raise TindexError(
+                    f"Tindex public stock page failed for {symbol}: {exc}"
+                ) from exc
+
+            parsed = self._parse_history_html(response.text)
+            if not parsed:
+                break
+
+            before = len(all_rows)
+            for row in parsed:
+                key = (row["dEven"], row["pClosing"])
+                if key not in seen:
+                    seen.add(key)
+                    all_rows.append(row)
+
+            if len(all_rows) == before or len(all_rows) >= 120:
+                break
+
+        if len(all_rows) < 30:
+            raise TindexError(
+                f"Tindex public history returned only {len(all_rows)} usable rows for {symbol}"
+            )
+
+        return all_rows[-120:]
+
+    def resolve(self, symbol):
+        """Resolve ticker to its current public Tindex stock URL slug.
+
+        Tindex public stock URLs currently use the Persian ticker directly,
+        so no API quota request is needed for resolution.
         """
         symbol = symbol.strip()
         cached = self._load_slugs().get(symbol)
         if cached:
             return cached
 
-        data = self._get(
-            "/stocks/by-category/stock-energy",
-            {"q": symbol, "page": 1, "per_page": 20},
-        )
-        rows = data if isinstance(data, list) else (data or {}).get("rows", [])
-        if not isinstance(rows, list):
-            rows = []
+        url = f"{self.WEB_BASE}/{quote(symbol, safe='')}/"
+        try:
+            response = self.session.get(url, timeout=self.timeout)
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            raise TindexError(f"Tindex stock not found: {symbol}") from exc
 
-        exact = None
-        for row in rows:
-            if not isinstance(row, dict):
-                continue
-            ticker = str(row.get("ticker") or row.get("symbol") or "").strip()
-            name = str(row.get("name") or "").strip()
-            if ticker == symbol or symbol == name:
-                exact = row
-                break
-
-        exact = exact or (rows[0] if rows else None)
-        if not exact:
+        if f"{symbol}" not in response.text:
             raise TindexError(f"Tindex stock not found: {symbol}")
 
-        slug = exact.get("slug")
-        if not slug:
-            raise TindexError(f"Tindex returned no slug for stock: {symbol}")
-
         cache = self._load_slugs()
-        cache[symbol] = str(slug)
+        cache[symbol] = symbol
         self._save_slugs(cache)
-        return str(slug)
+        return symbol
 
     def market_data(self, symbol: str, range_: str = "3m"):
-        """Fetch stock history using the documented stock slug endpoint."""
         symbol = symbol.strip()
         slugs = self._load_slugs()
-        slug = slugs.get(symbol)
+        slug = slugs.get(symbol) or self.resolve(symbol)
 
-        if not slug:
-            slug = self.resolve(symbol)
-            raise TindexError(
-                f"Tindex symbol resolved to {slug}; history will be fetched on the next run "
-                "to respect the free-plan one-request-per-minute limit"
-            )
-
-        data = self._get(
-            f"/stocks/{quote(str(slug), safe='')}/history",
-            {"range": range_},
-        )
-        if not isinstance(data, dict):
-            raise TindexError("Unexpected Tindex stock history response")
-
-        closes = data.get("points") or data.get("prices") or data.get("close") or []
-        dates = data.get("dates") or []
-        if not isinstance(closes, list) or len(closes) < 30:
-            raise TindexError(
-                f"Tindex returned insufficient history for {symbol}: {len(closes) if isinstance(closes, list) else 0} points"
-            )
-
-        history = []
-        for i, close in enumerate(closes):
-            history.append(
-                {
-                    "dEven": str(dates[i]) if i < len(dates) else "",
-                    "pClosing": close,
-                    "qTotTran5J": 0,
-                }
-            )
-
+        # Current Tindex stock API route used by the old implementation is
+        # retired. Use the public history page, whose data source is Tsetmc.
+        history = self._web_history(slug)
         return {
             "symbol": symbol,
             "slug": str(slug),
-            "unit": data.get("unit") or "تومان",
+            "unit": "ریال",
             "history": history,
             "flow": [],
-            "source": data.get("source") or "Tindex",
+            "source": "Tindex public stock page / Tsetmc",
         }
 
     def history(self, slug, range_="3m"):
-        data = self._get(
-            f"/stocks/{quote(str(slug), safe='')}/history",
-            {"range": range_},
-        )
-        if not isinstance(data, dict):
-            raise TindexError("Unexpected Tindex stock history response")
-        closes = data.get("points") or data.get("prices") or data.get("close") or []
-        return [{"close": value} for value in closes]
+        return self._web_history(str(slug))
 
     def detail(self, slug):
         encoded = quote(str(slug), safe="")
-        return self._get(f"/stocks/{encoded}")
+        return self._get(f"/indicators/stock-energy/{encoded}")
 
     @staticmethod
     def rial_to_toman(value):
