@@ -17,6 +17,7 @@ def main():
     tindex = TindexProvider(cfg.tindex_api_key, cfg.tindex_api_timeout)
     account = PaperAccount.load(initial_cash=cfg.initial_cash)
     provider_name = "TSETMC"
+    fundamentals = {}
 
     try:
         try:
@@ -24,6 +25,17 @@ def main():
             ins = found.get("insCode") or found.get("InsCode")
             symbol = found.get("lVal18AFC") or found.get("LVal18AFC") or cfg.symbol
             hist = client.history(str(ins), 120)
+            try:
+                info = client.instrument_info(str(ins))
+                eps_info = info.get("eps") if isinstance(info.get("eps"), dict) else {}
+                fundamentals = {
+                    "eps": eps_info.get("epsValue"),
+                    "estimated_eps": eps_info.get("estimatedEPS"),
+                    "sector_pe": eps_info.get("sectorPE"),
+                    "psr": eps_info.get("psr"),
+                }
+            except TsetmcError as exc:
+                print(f"FUNDAMENTAL DATA UNAVAILABLE | {exc}")
             flow = client.client_type(str(ins))
         except TsetmcError as primary_exc:
             try:
@@ -106,7 +118,7 @@ def main():
         si = float(f.get("sell_I_Volume") or f.get("Sell_I_Volume") or 0)
         sn = float(f.get("sell_N_Volume") or f.get("Sell_N_Volume") or 0)
         ratio = bi / (bi + bn) if bi + bn else None
-        signal = score_signal(closes, volumes, ratio, cfg.min_score)
+        signal = score_signal(closes, volumes, ratio, cfg.min_score, fundamentals)
 
         action = "HOLD"
         reason = "بدون معامله"
@@ -216,6 +228,8 @@ def main():
                 f"• واگرایی RSI: {signal.get('rsi_divergence', 'ندارد')}\n"
                 f"• واگرایی MACD: {signal.get('macd_divergence', 'ندارد')}\n"
                 f"• تأیید برگشت از اشباع فروش: {'بله' if signal.get('reversal_confirmation') else 'خیر'}\n"
+                f"• EPS: {signal.get('fundamental', {}).get('eps') if signal.get('fundamental', {}).get('eps') is not None else 'در دسترس نیست'}\n"
+                f"• P/E: {signal.get('fundamental', {}).get('pe') if signal.get('fundamental', {}).get('pe') is not None else 'در دسترس نیست'}\n"
                 f"• حجم جاری: {current_volume_text}\n"
                 f"• نسبت حجم: {volume_text}\n\n"
                 "💧 حقیقی/حقوقی\n"
@@ -231,6 +245,7 @@ def main():
                 f"• واگرایی RSI: {b.get('rsi_divergence', 0):+d}\n"
                 f"• واگرایی MACD: {b.get('macd_divergence', 0):+d}\n"
                 f"• تأیید برگشت: {b.get('reversal_confirmation', 0):+d}\n"
+                f"• فاندامنتال: {b.get('fundamental', 0):+d}\n"
                 f"➡️ امتیاز نهایی: {signal['score']} / 100\n"
                 f"حداقل امتیاز خرید: {signal.get('min_score', cfg.min_score)}\n\n"
                 "🧠 دلایل تحلیل\n"
