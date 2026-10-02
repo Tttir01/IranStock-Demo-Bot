@@ -166,16 +166,62 @@ def main():
 
         if cfg.telegram_enabled:
             position = snap.get("positions", {}).get(symbol)
-            pos_text = f"\nموقعیت: {position}" if position else "\nموقعیت باز: ندارد"
+            pos_text = (
+                f"\nموقعیت باز: {position}"
+                if position
+                else "\nموقعیت باز: ندارد"
+            )
+
+            b = signal.get("breakdown", {})
+            volume_ratio = signal.get("volume_ratio")
+            volume_text = (
+                f"{volume_ratio:.2f}x میانگین ۲۰روزه"
+                if volume_ratio is not None
+                else "نامشخص"
+            )
+            flow_text = (
+                f"{ratio * 100:.1f}% خرید حقیقی"
+                if ratio is not None
+                else "در دسترس نیست"
+            )
+            reasons_text = "\n".join(
+                f"• {item}" for item in signal.get("reasons", [])
+            )
+
             send_message(
-                "📊 ربات دمو بورس ایران\n"
+                "📊 ربات دمو بورس ایران | تحلیل کامل فولاد\n"
+                "━━━━━━━━━━━━━━━━━━\n"
                 f"منبع داده: {provider_name}\n"
                 f"نماد: {symbol}\n"
-                f"قیمت: {price:,.0f} تومان\n"
-                f"سیگنال: {signal['action']} | امتیاز: {signal['score']}\n"
-                f"عملیات دمو: {action}\n"
-                f"دلیل: {reason}\n"
-                f"سرمایه: {snap['equity']:,.0f} تومان\n"
+                f"قیمت: {price:,.0f} تومان\n\n"
+                "📈 وضعیت روند\n"
+                f"• روند: {signal.get('trend', 'نامشخص')}\n"
+                f"• EMA9: {signal.get('ema9', 0):,.2f}\n"
+                f"• EMA21: {signal.get('ema21', 0):,.2f}\n\n"
+                "📊 اندیکاتورها\n"
+                f"• RSI14: {signal.get('rsi', 0):.2f} | {signal.get('rsi_status', 'نامشخص')}\n"
+                f"• MACD: {signal.get('macd', 0):.4f}\n"
+                f"• خط سیگنال: {signal.get('macd_signal', 0):.4f}\n"
+                f"• وضعیت MACD: {signal.get('macd_state', 'نامشخص')}\n"
+                f"• حجم: {signal.get('volume', 0):,.0f}\n"
+                f"• نسبت حجم: {volume_text}\n\n"
+                "💧 حقیقی/حقوقی\n"
+                f"• {flow_text}\n\n"
+                "🧮 محاسبه امتیاز\n"
+                f"• پایه: {b.get('base', 0):+d}\n"
+                f"• روند: {b.get('trend', 0):+d}\n"
+                f"• MACD: {b.get('macd', 0):+d}\n"
+                f"• RSI: {b.get('rsi', 0):+d}\n"
+                f"• حجم: {b.get('volume', 0):+d}\n"
+                f"• حقیقی/حقوقی: {b.get('flow', 0):+d}\n"
+                f"➡️ امتیاز نهایی: {signal['score']} / 100\n"
+                f"حداقل امتیاز خرید: {signal.get('min_score', cfg.min_score)}\n\n"
+                "🧠 دلایل تحلیل\n"
+                f"{reasons_text}\n\n"
+                f"📌 سیگنال: {signal['action']}\n"
+                f"⚙️ عملیات دمو: {action}\n"
+                f"دلیل عملیات: {reason}\n\n"
+                f"💰 سرمایه: {snap['equity']:,.0f} تومان\n"
                 f"سود/زیان تحقق‌یافته: {snap['realized_pnl']:,.0f} تومان\n"
                 f"افت سرمایه: {snap['max_drawdown_pct']:.2f}%"
                 + pos_text
