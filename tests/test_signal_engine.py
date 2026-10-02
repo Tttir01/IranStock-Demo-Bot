@@ -29,3 +29,22 @@ def test_buy_sell_profit():
     assert account.buy("TEST", 100, 500)
     assert account.sell("TEST", 110) == 5_000
     assert account.cash == 105_000
+
+
+def test_signal_contains_full_analysis():
+    prices = [100 + i * 0.5 for i in range(80)]
+    volumes = [1000] * 79 + [1500]
+    result = score_signal(prices, volumes, min_score=80)
+    assert "trend" in result
+    assert "rsi" in result
+    assert "macd" in result
+    assert "volume_ratio" in result
+    assert "breakdown" in result
+    assert set(result["breakdown"]) == {"base", "trend", "macd", "rsi", "volume", "flow"}
+    assert result["volume_ratio"] is not None
+
+
+def test_signal_explains_missing_flow():
+    prices = [100 + i * 0.5 for i in range(80)]
+    result = score_signal(prices, [1000] * 80, None)
+    assert any("حقیقی/حقوقی" in reason for reason in result["reasons"])
