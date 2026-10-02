@@ -192,6 +192,17 @@ class TsetmcClient:
             })
         return rows[-1:] if rows else []
 
+    def codal_prepared(self, ins_code, top=10):
+        """Return recent Codal filing metadata for an instrument.
+
+        This endpoint is used for discovery/freshness only. It does not
+        pretend to contain audited financial-statement values.
+        """
+        return self._unwrap(
+            self._get(f"/Codal/GetPreparedDataByInsCode/{int(top)}/{ins_code}"),
+            "preparedData",
+        )
+
     def order_book(self, ins_code):
         return self._unwrap(self._get(f"/BestLimits/{ins_code}"), "bestLimits")
 
