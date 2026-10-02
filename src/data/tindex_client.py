@@ -222,7 +222,7 @@ class TindexProvider:
         return {
             "symbol": symbol,
             "slug": str(slug),
-            "unit": "ریال",
+            "unit": "تومان",
             "history": history,
             "flow": [],
             "source": "Tindex public stock page / Tsetmc",
