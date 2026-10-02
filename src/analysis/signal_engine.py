@@ -593,7 +593,8 @@ def score_signal(closes, volumes=None, real_buy_ratio=None, min_score=80, fundam
         "macd_divergence": macd_divergence
         if macd_divergence != "none"
         else macd_bearish_divergence,
-        "reversal_confirmation": breakdown["reversal_confirmation"] > 0,\n        "fundamental": fundamentals_result,
+        "reversal_confirmation": breakdown["reversal_confirmation"] > 0,
+        "fundamental": fundamentals_result,
         "volume": round(volume_current, 2) if volume_current is not None else None,
         "avg_volume_20": round(avg_volume, 2) if avg_volume is not None else None,
         "volume_ratio": round(volume_ratio, 2) if volume_ratio is not None else None,
