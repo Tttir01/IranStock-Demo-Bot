@@ -162,9 +162,25 @@ def fundamental_analysis(fundamentals=None, price=None):
     pe = _safe_float(f.get("pe"))
     sector_pe = _safe_float(f.get("sector_pe"))
     psr = _safe_float(f.get("psr"))
+    pb = _safe_float(f.get("pb"))
+    roe = _safe_float(f.get("roe"))
+    roa = _safe_float(f.get("roa"))
+    debt_to_equity = _safe_float(f.get("debt_to_equity"))
+    revenue_growth = _safe_float(f.get("revenue_growth_pct"))
+    profit_growth = _safe_float(f.get("profit_growth_pct"))
     score = 0
     reasons = []
-    breakdown = {"eps": 0, "pe": 0, "growth": 0, "relative_valuation": 0, "psr": 0}
+    breakdown = {
+        "eps": 0,
+        "pe": 0,
+        "growth": 0,
+        "relative_valuation": 0,
+        "psr": 0,
+        "pb": 0,
+        "profitability": 0,
+        "growth_quality": 0,
+        "leverage": 0,
+    }
 
     if eps is not None:
         if eps > 0:
@@ -225,7 +241,65 @@ def fundamental_analysis(fundamentals=None, price=None):
     else:
         reasons.append("PSR در دسترس نیست")
 
-    score = max(-15, min(15, score))
+    if pb is not None:
+        if 0 < pb <= 1.2:
+            breakdown["pb"] = 2; score += 2
+        elif pb >= 4:
+            breakdown["pb"] = -2; score -= 2
+        reasons.append(f"P/B: {pb:.2f}")
+    else:
+        reasons.append("P/B در دسترس نیست")
+
+    profitability_points = 0
+    if roe is not None:
+        if roe >= 25:
+            profitability_points += 3
+        elif roe >= 15:
+            profitability_points += 2
+        elif roe < 5:
+            profitability_points -= 2
+        reasons.append(f"ROE: {roe:.1f}٪")
+    if roa is not None:
+        if roa >= 12:
+            profitability_points += 2
+        elif roa < 3:
+            profitability_points -= 1
+        reasons.append(f"ROA: {roa:.1f}٪")
+    breakdown["profitability"] = max(-3, min(4, profitability_points))
+    score += breakdown["profitability"]
+    if roe is None and roa is None:
+        reasons.append("ROE/ROA در دسترس نیست")
+
+    growth_quality = 0
+    if revenue_growth is not None:
+        if revenue_growth >= 20:
+            growth_quality += 2
+        elif revenue_growth <= -20:
+            growth_quality -= 2
+        reasons.append(f"رشد درآمد: {revenue_growth:.1f}٪")
+    if profit_growth is not None:
+        if profit_growth >= 20:
+            growth_quality += 3
+        elif profit_growth <= -20:
+            growth_quality -= 3
+        reasons.append(f"رشد سود خالص: {profit_growth:.1f}٪")
+    breakdown["growth_quality"] = max(-4, min(4, growth_quality))
+    score += breakdown["growth_quality"]
+    if revenue_growth is None and profit_growth is None:
+        reasons.append("رشد درآمد/سود در دسترس نیست")
+
+    if debt_to_equity is not None:
+        if debt_to_equity <= 0.5:
+            breakdown["leverage"] = 2
+            score += 2
+        elif debt_to_equity >= 2:
+            breakdown["leverage"] = -3
+            score -= 3
+        reasons.append(f"بدهی به حقوق صاحبان سهام: {debt_to_equity:.2f}x")
+    else:
+        reasons.append("نسبت بدهی به حقوق صاحبان سهام در دسترس نیست")
+
+    score = max(-20, min(20, score))
     return {
         "score": score,
         "eps": eps,
@@ -234,6 +308,12 @@ def fundamental_analysis(fundamentals=None, price=None):
         "pe": round(pe, 2) if pe is not None else None,
         "sector_pe": sector_pe,
         "psr": psr,
+        "pb": pb,
+        "roe": roe,
+        "roa": roa,
+        "debt_to_equity": debt_to_equity,
+        "revenue_growth_pct": revenue_growth,
+        "profit_growth_pct": profit_growth,
         "breakdown": breakdown,
         "reasons": reasons,
     }
@@ -465,6 +545,7 @@ def score_signal(closes, volumes=None, real_buy_ratio=None, min_score=80, fundam
         reasons.append("RSI همچنان زیر ۳۰ است؛ برگشت از اشباع فروش هنوز تأیید نشده است")
 
     # 10) Fundamental layer, capped at +/-15.
+    breakdown["fundamental"] = fundamental_score
     score += fundamental_score
     reasons.extend([f"فاندامنتال: {item}" for item in fundamentals_result["reasons"]])
 
