@@ -148,7 +148,98 @@ def _trend_strength(prices, e9_series, e21_series):
     return round(strength, 1), status
 
 
-def score_signal(closes, volumes=None, real_buy_ratio=None, min_score=80):
+def _safe_float(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def fundamental_analysis(fundamentals=None, price=None):
+    f = fundamentals or {}
+    eps = _safe_float(f.get("eps"))
+    estimated_eps = _safe_float(f.get("estimated_eps"))
+    pe = _safe_float(f.get("pe"))
+    sector_pe = _safe_float(f.get("sector_pe"))
+    psr = _safe_float(f.get("psr"))
+    score = 0
+    reasons = []
+    breakdown = {"eps": 0, "pe": 0, "growth": 0, "relative_valuation": 0, "psr": 0}
+
+    if eps is not None:
+        if eps > 0:
+            breakdown["eps"] = 3; score += 3
+            reasons.append(f"EPS مثبت است ({eps:,.0f})")
+        elif eps < 0:
+            breakdown["eps"] = -5; score -= 5
+            reasons.append(f"EPS منفی است ({eps:,.0f})")
+    else:
+        reasons.append("EPS در دسترس نیست")
+
+    if pe is None and price is not None and eps is not None and eps > 0:
+        pe = float(price) / eps
+
+    if pe is not None:
+        if 0 < pe <= 8:
+            breakdown["pe"] = 4; score += 4
+            reasons.append(f"P/E در محدوده پایین است ({pe:.2f})")
+        elif pe > 20:
+            breakdown["pe"] = -4; score -= 4
+            reasons.append(f"P/E بالا است ({pe:.2f})")
+        elif pe > 0:
+            breakdown["pe"] = 1; score += 1
+            reasons.append(f"P/E مثبت و متوسط است ({pe:.2f})")
+        else:
+            reasons.append("P/E معتبر نیست")
+    else:
+        reasons.append("P/E در دسترس نیست")
+
+    if estimated_eps is not None and eps is not None and eps != 0:
+        growth = (estimated_eps / abs(eps) - 1.0) * 100.0
+        if growth >= 20:
+            breakdown["growth"] = 4; score += 4
+        elif growth >= 5:
+            breakdown["growth"] = 2; score += 2
+        elif growth <= -20:
+            breakdown["growth"] = -4; score -= 4
+        reasons.append(f"رشد EPS برآوردی: {growth:.1f}٪")
+    else:
+        reasons.append("رشد EPS قابل محاسبه نیست")
+
+    if pe is not None and sector_pe is not None and pe > 0 and sector_pe > 0:
+        ratio = pe / sector_pe
+        if ratio <= 0.75:
+            breakdown["relative_valuation"] = 3; score += 3
+        elif ratio >= 1.30:
+            breakdown["relative_valuation"] = -3; score -= 3
+        reasons.append(f"P/E نسبت به صنعت: {ratio:.2f}x")
+    else:
+        reasons.append("P/E صنعت برای مقایسه در دسترس نیست")
+
+    if psr is not None:
+        if psr <= 2:
+            breakdown["psr"] = 2; score += 2
+        elif psr >= 8:
+            breakdown["psr"] = -2; score -= 2
+        reasons.append(f"PSR: {psr:.2f}")
+    else:
+        reasons.append("PSR در دسترس نیست")
+
+    score = max(-15, min(15, score))
+    return {
+        "score": score,
+        "eps": eps,
+        "estimated_eps": estimated_eps,
+        "eps_growth_pct": round((estimated_eps / abs(eps) - 1.0) * 100.0, 2) if estimated_eps is not None and eps not in (None, 0) else None,
+        "pe": round(pe, 2) if pe is not None else None,
+        "sector_pe": sector_pe,
+        "psr": psr,
+        "breakdown": breakdown,
+        "reasons": reasons,
+    }
+
+
+def score_signal(closes, volumes=None, real_buy_ratio=None, min_score=80, fundamentals=None):
     closes = list(map(float, closes))
     raw_volumes = volumes or []
     clean_volumes = []
@@ -212,6 +303,8 @@ def score_signal(closes, volumes=None, real_buy_ratio=None, min_score=80):
 
     score = 35
     reasons = []
+    fundamentals_result = fundamental_analysis(fundamentals, price)
+    fundamental_score = fundamentals_result["score"]
     breakdown = {
         "base": 35,
         "trend": 0,
@@ -371,6 +464,10 @@ def score_signal(closes, volumes=None, real_buy_ratio=None, min_score=80):
     elif rv < 30:
         reasons.append("RSI همچنان زیر ۳۰ است؛ برگشت از اشباع فروش هنوز تأیید نشده است")
 
+    # 10) Fundamental layer, capped at +/-15.
+    score += fundamental_score
+    reasons.extend([f"فاندامنتال: {item}" for item in fundamentals_result["reasons"]])
+
     # Divergence without price confirmation is an early warning, not a
     # standalone entry trigger.
     if (rsi_divergence == "bullish" or macd_divergence == "bullish") and rv < 35:
@@ -415,7 +512,7 @@ def score_signal(closes, volumes=None, real_buy_ratio=None, min_score=80):
         "macd_divergence": macd_divergence
         if macd_divergence != "none"
         else macd_bearish_divergence,
-        "reversal_confirmation": breakdown["reversal_confirmation"] > 0,
+        "reversal_confirmation": breakdown["reversal_confirmation"] > 0,\n        "fundamental": fundamentals_result,
         "volume": round(volume_current, 2) if volume_current is not None else None,
         "avg_volume_20": round(avg_volume, 2) if avg_volume is not None else None,
         "volume_ratio": round(volume_ratio, 2) if volume_ratio is not None else None,
