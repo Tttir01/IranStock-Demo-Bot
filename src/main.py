@@ -1,13 +1,120 @@
+from __future__ import annotations
+
 from src.config import Config
-from src.data.tsetmc_client import TsetmcClient, TsetmcError
-from src.data.brsapi_client import BrsApiProvider, ProviderError
-from src.data.tindex_client import TindexProvider, TindexError
-from src.analysis.signal_engine import score_signal
+from src.data.tsetmc_client import TsetmcClient
+from src.data.brsapi_client import BrsApiProvider
+from src.data.tindex_client import TindexProvider
+from src.analysis.scanner import scan_symbols
 from src.analysis.screener import market_rows, top_gainers, top_volume
 from src.dashboard.generate import write_dashboard
 from src.trading.paper_account import PaperAccount
 from src.trading.risk_manager import position_size, exit_reason
 from src.telegram_bot import send_message
+
+
+def _paper_actions(results, account, cfg):
+    prices = {}
+    actions = []
+
+    for item in results:
+        symbol = item["symbol"]
+        price = float(item.get("price") or 0)
+        signal = item.get("signal", {})
+        if price <= 0:
+            actions.append({"symbol": symbol, "action": "NONE", "reason": "داده معتبر ندارد"})
+            continue
+
+        prices[symbol] = price
+
+        if symbol in account.positions:
+            reason = exit_reason(account.positions[symbol], price)
+            if reason or signal.get("action") == "NO_TRADE":
+                account.sell(symbol, price, reason or "SIGNAL")
+                actions.append({"symbol": symbol, "action": "SELL", "reason": reason or "SIGNAL"})
+            else:
+                actions.append({"symbol": symbol, "action": "HOLD", "reason": "موقعیت باز و سیگنال خروج فعال نیست"})
+        elif signal.get("action") == "BUY":
+            qty = position_size(account.cash, price, cfg.max_position_pct)
+            if account.buy(symbol, price, qty, cfg.stop_loss_pct, cfg.take_profit_pct):
+                actions.append({
+                    "symbol": symbol,
+                    "action": "BUY",
+                    "reason": f"score={signal.get('score', 0)}",
+                    "quantity": qty,
+                })
+            else:
+                actions.append({"symbol": symbol, "action": "NONE", "reason": "سرمایه/حجم سفارش کافی نیست"})
+        else:
+            actions.append({
+                "symbol": symbol,
+                "action": "WATCH" if signal.get("action") == "WATCH" else "NONE",
+                "reason": signal.get("action", "NO_TRADE"),
+            })
+
+    account.update_risk(prices)
+    return actions, prices
+
+
+def _telegram_report(results, actions, snap, cfg):
+    usable = [x for x in results if x.get("price", 0) > 0]
+    ranked = sorted(
+        usable,
+        key=lambda x: x.get("signal", {}).get("score", 0),
+        reverse=True,
+    )
+
+    lines = [
+        "📊 ربات حرفه‌ای دمو بورس ایران",
+        "━━━━━━━━━━━━━━━━━━",
+        f"🔎 تعداد نمادهای بررسی‌شده: {len(results)}",
+        f"💰 سرمایه/ارزش پرتفوی: {snap['equity']:,.0f} تومان",
+        f"📉 افت سرمایه: {snap['max_drawdown_pct']:.2f}٪",
+        "",
+        "🏆 خروجی اسکن",
+    ]
+
+    for item in ranked[:10]:
+        s = item["signal"]
+        action = next(
+            (a["action"] for a in actions if a["symbol"] == item["symbol"]),
+            "NONE",
+        )
+        lines.append(
+            f"• {item['symbol']} | امتیاز {s.get('score', 0)}/100 | "
+            f"{s.get('action', 'UNAVAILABLE')} | عملیات: {action}"
+        )
+
+    if not ranked:
+        lines.append("• هیچ نماد دارای داده معتبر در این اجرا نبود.")
+
+    lines.extend(["", "📌 جزئیات نمادهای منتخب"])
+
+    for item in ranked[:5]:
+        s = item["signal"]
+        f = s.get("fundamental", {})
+        b = s.get("breakdown", {})
+        flow = item.get("flow", {}).get("real_buy_ratio")
+        flow_text = f"{flow * 100:.1f}٪" if flow is not None else "نامشخص"
+        lines.extend([
+            "",
+            f"🔹 {item['symbol']} | {item['price']:,.0f} تومان",
+            f"سیگنال: {s.get('action')} | امتیاز: {s.get('score', 0)}/100",
+            f"روند: {s.get('trend', 'نامشخص')} | قدرت روند: {s.get('trend_strength', 0):.1f}/100",
+            f"RSI: {s.get('rsi', 0):.2f} | MACD: {s.get('macd_state', 'نامشخص')}",
+            f"واگرایی RSI: {s.get('rsi_divergence', 'ندارد')} | واگرایی MACD: {s.get('macd_divergence', 'ندارد')}",
+            f"برگشت از اشباع فروش: {'تأیید' if s.get('reversal_confirmation') else 'تأیید نشده'}",
+            f"حجم: {s.get('volume_ratio') if s.get('volume_ratio') is not None else 'نامشخص'}x میانگین",
+            f"خرید حقیقی: {flow_text}",
+            f"فاندامنتال: {b.get('fundamental', 0):+d}/20 | EPS: {f.get('eps') if f.get('eps') is not None else 'نامشخص'} | P/E: {f.get('pe') if f.get('pe') is not None else 'نامشخص'}",
+            f"ROE: {f.get('roe') if f.get('roe') is not None else 'نامشخص'}٪ | P/B: {f.get('pb') if f.get('pb') is not None else 'نامشخص'}",
+        ])
+
+    lines.extend([
+        "",
+        "🧠 توجه: این گزارش اطلاعات تحلیلی و Paper Trading است و به‌تنهایی به معنی توصیه سرمایه‌گذاری نیست.",
+        f"⚙️ حداقل امتیاز خرید تنظیم‌شده: {cfg.min_score}",
+    ])
+    return "\n".join(lines)
 
 
 def main():
@@ -16,298 +123,42 @@ def main():
     brs = BrsApiProvider(cfg.brs_api_key, cfg.brs_api_timeout)
     tindex = TindexProvider(cfg.tindex_api_key, cfg.tindex_api_timeout)
     account = PaperAccount.load(initial_cash=cfg.initial_cash)
-    provider_name = "TSETMC"
-    fundamentals = {}
-    codal_filings = []
+
+    results = scan_symbols(cfg.symbols, client, brs, tindex, cfg)
+    actions, prices = _paper_actions(results, account, cfg)
+    snap = account.snapshot(prices)
+    account.save()
 
     try:
-        try:
-            found = client.resolve_symbol(cfg.symbol)
-            ins = found.get("insCode") or found.get("InsCode")
-            symbol = found.get("lVal18AFC") or found.get("LVal18AFC") or cfg.symbol
-            hist = client.history(str(ins), 120)
-            try:
-                info = client.instrument_info(str(ins))
-                eps_info = info.get("eps") if isinstance(info.get("eps"), dict) else {}
-                fundamentals = {
-                    "eps": eps_info.get("epsValue"),
-                    "estimated_eps": eps_info.get("estimatedEPS"),
-                    "sector_pe": eps_info.get("sectorPE"),
-                    "psr": eps_info.get("psr"),
-                    # Optional fields are accepted when the upstream endpoint
-                    # exposes them; missing values are explicitly left empty.
-                    "pb": eps_info.get("pb") or eps_info.get("pB"),
-                    "roe": eps_info.get("roe") or eps_info.get("ROE"),
-                    "roa": eps_info.get("roa") or eps_info.get("ROA"),
-                    "debt_to_equity": eps_info.get("debtToEquity") or eps_info.get("debt_to_equity"),
-                    "revenue_growth_pct": eps_info.get("revenueGrowthPct") or eps_info.get("revenue_growth_pct"),
-                    "profit_growth_pct": eps_info.get("profitGrowthPct") or eps_info.get("profit_growth_pct"),
-                }
-                try:
-                    codal_filings = client.codal_prepared(str(ins), 10)
-                    if not isinstance(codal_filings, list):
-                        codal_filings = []
-                except TsetmcError as exc:
-                    print(f"CODAL METADATA UNAVAILABLE | {exc}")
-            except TsetmcError as exc:
-                print(f"FUNDAMENTAL DATA UNAVAILABLE | {exc}")
-            flow = client.client_type(str(ins))
-        except TsetmcError as primary_exc:
-            try:
-                found = client.legacy_search(cfg.symbol)
-                if not found:
-                    raise TsetmcError(f"Legacy TSETMC symbol not found: {cfg.symbol}")
-                ins = found[0].get("insCode")
-                symbol = found[0].get("lVal18AFC") or cfg.symbol
-                hist = client.legacy_history(str(ins), 120)
-                flow = client.legacy_client_type(str(ins))
-                provider_name = "TSETMC-LEGACY"
-                print(f"DATA PROVIDER FALLBACK | {provider_name} | reason={primary_exc}")
-            except TsetmcError as legacy_exc:
-                try:
-                    if not tindex.available:
-                        raise TindexError("TINDEX_API_KEY is not configured")
-                    tdata = tindex.market_data(cfg.symbol, "3m")
-                    symbol = tdata["symbol"]
-                    hist = tdata["history"]
-                    flow = tdata.get("flow", [])
-                    provider_name = "Tindex"
-                    print(
-                        f"DATA PROVIDER FALLBACK | {provider_name} | "
-                        f"reason={legacy_exc} | "
-                        f"endpoint=stocks/{tdata.get('slug')}/history"
-                    )
-                except TindexError as tindex_exc:
-                    if brs.available:
-                        provider_name = "BrsApi"
-                        symbol = cfg.symbol
-                        hist = brs.history(symbol, 120)
-                        flow = brs.client_type(symbol)
-                        print(
-                            f"DATA PROVIDER FALLBACK | {provider_name} | "
-                            f"reason={tindex_exc}"
-                        )
-                    else:
-                        raise TsetmcError(
-                            f"TSETMC unavailable; Tindex unavailable: {tindex_exc}"
-                        ) from tindex_exc
+        rows = market_rows(client.market_watch())
+        gainers = top_gainers(rows)
+        volume = top_volume(rows)
+    except Exception as exc:
+        print(f"MARKET WATCH UNAVAILABLE | {exc}")
+        gainers, volume = [], []
 
-        closes = []
-        volumes = []
-        for row in hist:
-            p = (
-                row.get("pClosing")
-                or row.get("pc")
-                or row.get("closingPrice")
-                or row.get("pcp")
-                or row.get("close")
-            )
-            v = (
-                row.get("qTotTran5J")
-                or row.get("tvol")
-                or row.get("volume")
-                or row.get("zTotTran")
-            )
-            if p is not None:
-                if provider_name == "Tindex":
-                    # Current Tindex stock API reports stock prices in toman.
-                    closes.append(float(p))
-                else:
-                    closes.append(client.rial_to_toman(p))
-                if v is not None:
-                    try:
-                        if float(v) > 0:
-                            volumes.append(float(v))
-                    except (TypeError, ValueError):
-                        pass
+    payload = {
+        "summary": {
+            "symbols": list(cfg.symbols)[: cfg.max_symbols],
+            "scanned": len(results),
+            "provider": "MULTI",
+        },
+        "scan_results": results,
+        "actions": actions,
+        "paper": snap,
+        "top_gainers": gainers,
+        "top_volume": volume,
+    }
+    write_dashboard(payload)
 
-        if not closes:
-            raise TsetmcError(
-                f"{provider_name} returned no usable price history for {symbol}"
-            )
+    print(
+        f"IRAN STOCK PROFESSIONAL PAPER | scanned={len(results)} | "
+        f"equity={snap['equity']:,.0f} | P/L={snap['realized_pnl']:,.0f} | "
+        f"DD={snap['max_drawdown_pct']:.2f}%"
+    )
 
-        price = closes[-1]
-        f = flow[0] if flow else {}
-        bi = float(f.get("buy_I_Volume") or f.get("Buy_I_Volume") or 0)
-        bn = float(f.get("buy_N_Volume") or f.get("Buy_N_Volume") or 0)
-        si = float(f.get("sell_I_Volume") or f.get("Sell_I_Volume") or 0)
-        sn = float(f.get("sell_N_Volume") or f.get("Sell_N_Volume") or 0)
-        ratio = bi / (bi + bn) if bi + bn else None
-        signal = score_signal(closes, volumes, ratio, cfg.min_score, fundamentals)
-
-        action = "HOLD"
-        reason = "بدون معامله"
-        if symbol in account.positions:
-            reason = exit_reason(account.positions[symbol], price)
-            if reason or signal["action"] == "NO_TRADE":
-                account.sell(symbol, price, reason or "SIGNAL")
-                action = "SELL"
-                reason = reason or "SIGNAL"
-        elif signal["action"] == "BUY":
-            qty = position_size(account.cash, price, cfg.max_position_pct)
-            if account.buy(
-                symbol, price, qty, cfg.stop_loss_pct, cfg.take_profit_pct
-            ):
-                action = "BUY"
-                reason = f"score={signal['score']}"
-
-        account.update_risk({symbol: price})
-
-        try:
-            rows = (
-                market_rows(client.market_watch())
-                if provider_name == "TSETMC"
-                else []
-            )
-        except TsetmcError:
-            rows = []
-
-        snap = account.snapshot({symbol: price})
-        payload = {
-            "summary": {
-                "symbol": symbol,
-                "price_toman": price,
-                "provider": provider_name,
-            },
-            "signal": signal,
-            "paper": snap,
-            "paper_action": action,
-            "paper_reason": reason,
-            "flow": {
-                "real_buy_volume": bi,
-                "legal_buy_volume": bn,
-                "real_sell_volume": si,
-                "legal_sell_volume": sn,
-                "real_buy_ratio": ratio,
-            },
-            "top_gainers": top_gainers(rows),
-            "top_volume": top_volume(rows),
-        }
-        write_dashboard(payload)
-        account.save()
-        print(
-            f"IRAN STOCK PAPER | {symbol} | provider={provider_name} | "
-            f"price={price:,.0f} | score={signal['score']} | "
-            f"signal={signal['action']} | paper={action}"
-        )
-        print(
-            f"Paper equity={snap['equity']:,.0f} | "
-            f"P/L={snap['realized_pnl']:,.0f} | "
-            f"DD={snap['max_drawdown_pct']:.2f}%"
-        )
-
-        if cfg.telegram_enabled:
-            position = snap.get("positions", {}).get(symbol)
-            pos_text = (
-                f"\nموقعیت باز: {position}"
-                if position
-                else "\nموقعیت باز: ندارد"
-            )
-
-            b = signal.get("breakdown", {})
-            volume_ratio = signal.get("volume_ratio")
-            volume_text = (
-                f"{volume_ratio:.2f}x میانگین ۲۰روزه"
-                if volume_ratio is not None
-                else "حجم تاریخی در دسترس نیست"
-            )
-            current_volume = signal.get("volume")
-            current_volume_text = (
-                f"{current_volume:,.0f}" if current_volume is not None else "در دسترس نیست"
-            )
-            flow_text = (
-                f"{ratio * 100:.1f}% خرید حقیقی"
-                if ratio is not None
-                else "در دسترس نیست"
-            )
-            reasons_text = "\n".join(
-                f"• {item}" for item in signal.get("reasons", [])
-            )
-
-            send_message(
-                "📊 ربات دمو بورس ایران | تحلیل کامل فولاد\n"
-                "━━━━━━━━━━━━━━━━━━\n"
-                f"منبع داده: {provider_name}\n"
-                f"نماد: {symbol}\n"
-                f"قیمت: {price:,.0f} تومان\n\n"
-                "📈 وضعیت روند\n"
-                f"• روند: {signal.get('trend', 'نامشخص')}\n"
-                f"• EMA9: {signal.get('ema9', 0):,.2f}\n"
-                f"• EMA21: {signal.get('ema21', 0):,.2f}\n"
-                f"• قدرت روند: {signal.get('trend_strength', 0):.1f}/100 | {signal.get('trend_strength_status', 'نامشخص')}\n\n"
-                "📊 اندیکاتورها\n"
-                f"• RSI14: {signal.get('rsi', 0):.2f} | {signal.get('rsi_status', 'نامشخص')}\n"
-                f"• MACD: {signal.get('macd', 0):.4f}\n"
-                f"• خط سیگنال: {signal.get('macd_signal', 0):.4f}\n"
-                f"• وضعیت MACD: {signal.get('macd_state', 'نامشخص')}\n"
-                f"• واگرایی RSI: {signal.get('rsi_divergence', 'ندارد')}\n"
-                f"• واگرایی MACD: {signal.get('macd_divergence', 'ندارد')}\n"
-                f"• تأیید برگشت از اشباع فروش: {'بله' if signal.get('reversal_confirmation') else 'خیر'}\n"
-                f"• EPS: {signal.get('fundamental', {}).get('eps') if signal.get('fundamental', {}).get('eps') is not None else 'در دسترس نیست'}\n"
-                f"• P/E: {signal.get('fundamental', {}).get('pe') if signal.get('fundamental', {}).get('pe') is not None else 'در دسترس نیست'}\n"
-                f"• P/E صنعت: {signal.get('fundamental', {}).get('sector_pe') if signal.get('fundamental', {}).get('sector_pe') is not None else 'در دسترس نیست'}\n"
-                f"• P/B: {signal.get('fundamental', {}).get('pb') if signal.get('fundamental', {}).get('pb') is not None else 'در دسترس نیست'}\n"
-                f"• رشد EPS: {signal.get('fundamental', {}).get('eps_growth_pct') if signal.get('fundamental', {}).get('eps_growth_pct') is not None else 'در دسترس نیست'}٪\n"
-                f"• ROE: {signal.get('fundamental', {}).get('roe') if signal.get('fundamental', {}).get('roe') is not None else 'در دسترس نیست'}٪\n"
-                f"• ROA: {signal.get('fundamental', {}).get('roa') if signal.get('fundamental', {}).get('roa') is not None else 'در دسترس نیست'}٪\n"
-                f"• امتیاز فاندامنتال: {b.get('fundamental', 0):+d} / 20\n"
-                f"• اطلاعیه‌های اخیر کدال: {len(codal_filings)} مورد\n"
-                f"• حجم جاری: {current_volume_text}\n"
-                f"• نسبت حجم: {volume_text}\n\n"
-                "💧 حقیقی/حقوقی\n"
-                f"• {flow_text}\n\n"
-                "🧮 محاسبه امتیاز\n"
-                f"• پایه: {b.get('base', 0):+d}\n"
-                f"• روند: {b.get('trend', 0):+d}\n"
-                f"• MACD: {b.get('macd', 0):+d}\n"
-                f"• RSI: {b.get('rsi', 0):+d}\n"
-                f"• حجم: {b.get('volume', 0):+d}\n"
-                f"• حقیقی/حقوقی: {b.get('flow', 0):+d}\n"
-                f"• قدرت روند: {b.get('trend_strength', 0):+d}\n"
-                f"• واگرایی RSI: {b.get('rsi_divergence', 0):+d}\n"
-                f"• واگرایی MACD: {b.get('macd_divergence', 0):+d}\n"
-                f"• تأیید برگشت: {b.get('reversal_confirmation', 0):+d}\n"
-                f"• فاندامنتال: {b.get('fundamental', 0):+d}\n"
-                f"➡️ امتیاز نهایی: {signal['score']} / 100\n"
-                f"حداقل امتیاز خرید: {signal.get('min_score', cfg.min_score)}\n\n"
-                "🧠 دلایل تحلیل\n"
-                f"{reasons_text}\n\n"
-                f"📌 سیگنال: {signal['action']}\n"
-                f"⚙️ عملیات دمو: {action}\n"
-                f"دلیل عملیات: {reason}\n\n"
-                f"💰 سرمایه: {snap['equity']:,.0f} تومان\n"
-                f"سود/زیان تحقق‌یافته: {snap['realized_pnl']:,.0f} تومان\n"
-                f"افت سرمایه: {snap['max_drawdown_pct']:.2f}%"
-                + pos_text
-            )
-
-    except (TsetmcError, ProviderError, TindexError) as exc:
-        write_dashboard(
-            {
-                "summary": {
-                    "symbol": cfg.symbol,
-                    "price_toman": 0,
-                    "provider": "UNAVAILABLE",
-                },
-                "signal": {
-                    "score": 0,
-                    "action": "UNAVAILABLE",
-                    "reasons": [str(exc)],
-                },
-                "paper": account.snapshot(),
-                "paper_action": "NONE",
-                "top_gainers": [],
-                "top_volume": [],
-            }
-        )
-        account.save()
-        print(f"MARKET DATA UNAVAILABLE | {exc}")
-        if cfg.telegram_enabled:
-            send_message(
-                "⚠️ ربات دمو بورس ایران\n"
-                "داده معتبر بازار در این اجرا دریافت نشد؛ هیچ معامله DEMO انجام نشد.\n"
-                f"جزئیات: {exc}"
-            )
+    if cfg.telegram_enabled:
+        send_message(_telegram_report(results, actions, snap, cfg))
 
 
 if __name__ == "__main__":
