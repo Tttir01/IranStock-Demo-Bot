@@ -36,6 +36,8 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TELEGRAM_ENABLED: "true"
+          PAPER_SYMBOLS: "فولاد,فملی,شستا,وبملت,خودرو,شپنا,شبندر,کگل,کچاد,ذوب"
+          MAX_SCAN_SYMBOLS: "10"
           BRS_API_KEY: ${{ secrets.BRS_API_KEY }}
           BRS_API_TIMEOUT: "10"
           TINDEX_API_KEY: ${{ secrets.TINDEX_API_KEY }}
