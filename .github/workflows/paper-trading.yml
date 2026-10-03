@@ -1,6 +1,11 @@
 name: Iran Stock Paper Trading
 
 on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "data/**"
+      - "dashboard/**"
   workflow_dispatch:
   schedule:
     - cron: "*/30 * * * *"
