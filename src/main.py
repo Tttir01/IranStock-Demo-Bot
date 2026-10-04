@@ -10,6 +10,7 @@ from src.dashboard.generate import write_dashboard
 from src.trading.paper_account import PaperAccount
 from src.trading.risk_manager import position_size, exit_reason
 from src.telegram_bot import send_message
+from src.broker.agah import AgahBroker, OrderRequest
 
 
 def _paper_actions(results, account, cfg):
@@ -55,7 +56,32 @@ def _paper_actions(results, account, cfg):
     return actions, prices
 
 
-def _telegram_report(results, actions, snap, cfg):
+
+def _agah_dry_run(results, actions, snap, cfg):
+    broker = AgahBroker(cfg.trading_mode)
+    if cfg.trading_mode != "DRY_RUN":
+        return broker.account_status(), []
+
+    orders = []
+    positions = snap.get("positions", {})
+    for action in actions:
+        side = action.get("action")
+        if side not in {"BUY", "SELL"}:
+            continue
+        item = next((x for x in results if x.get("symbol") == action.get("symbol")), None)
+        if not item or float(item.get("price") or 0) <= 0:
+            continue
+        qty = int(action.get("quantity") or positions.get(action["symbol"], {}).get("quantity") or 0)
+        if qty <= 0:
+            continue
+        orders.append(
+            broker.submit_order(
+                OrderRequest(action["symbol"], side, qty, float(item["price"]))
+            )
+        )
+    return broker.account_status(), orders
+
+def _telegram_report(results, actions, snap, cfg, broker_status=None, broker_orders=None):
     usable = [x for x in results if x.get("price", 0) > 0]
     ranked = sorted(
         usable,
@@ -113,7 +139,13 @@ def _telegram_report(results, actions, snap, cfg):
         "",
         "🧠 توجه: این گزارش اطلاعات تحلیلی و Paper Trading است و به‌تنهایی به معنی توصیه سرمایه‌گذاری نیست.",
         f"⚙️ حداقل امتیاز خرید تنظیم‌شده: {cfg.min_score}",
+        f"🏦 کارگزاری: آگاه | حالت: {cfg.trading_mode}",
     ])
+    if broker_status and cfg.trading_mode == "DRY_RUN":
+        lines.extend([
+            "🧪 DRY_RUN فعال است؛ هیچ سفارش واقعی به آگاه ارسال نشده است.",
+            f"📨 سفارش‌های شبیه‌سازی‌شده: {len(broker_orders or [])}",
+        ])
     return "\n".join(lines)
 
 
@@ -128,6 +160,8 @@ def main():
     actions, prices = _paper_actions(results, account, cfg)
     snap = account.snapshot(prices)
     account.save()
+    broker_status, broker_orders = _agah_dry_run(results, actions, snap, cfg)
+    print(f"BROKER | {broker_status}")
 
     try:
         rows = market_rows(client.market_watch())
@@ -158,7 +192,7 @@ def main():
     )
 
     if cfg.telegram_enabled:
-        send_message(_telegram_report(results, actions, snap, cfg))
+        send_message(_telegram_report(results, actions, snap, cfg, broker_status, broker_orders))
 
 
 if __name__ == "__main__":
