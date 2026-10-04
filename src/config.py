@@ -24,6 +24,7 @@ class Config:
     tindex_api_key: str = os.getenv("TINDEX_API_KEY", "")
     tindex_api_timeout: int = int(os.getenv("TINDEX_API_TIMEOUT", "12"))
     telegram_enabled: bool = os.getenv("TELEGRAM_ENABLED", "true").lower() == "true"
+    trading_mode: str = os.getenv("TRADING_MODE", "PAPER").upper()
 
     @property
     def headers(self):
