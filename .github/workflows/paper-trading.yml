@@ -47,6 +47,10 @@ jobs:
           BRS_API_TIMEOUT: "10"
           TINDEX_API_KEY: ${{ secrets.TINDEX_API_KEY }}
           TINDEX_API_TIMEOUT: "12"
+          TRADING_MODE: "DRY_RUN"
+          AGAH_API_KEY: ${{ secrets.AGAH_API_KEY }}
+          AGAH_API_SECRET: ${{ secrets.AGAH_API_SECRET }}
+          AGAH_ACCOUNT_ID: ${{ secrets.AGAH_ACCOUNT_ID }}
         run: python -m src.main
 
       - name: Commit paper state
