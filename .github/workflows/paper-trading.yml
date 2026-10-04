@@ -20,6 +20,7 @@ permissions:
 jobs:
   paper:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
@@ -29,6 +30,20 @@ jobs:
         with:
           python-version: "3.12"
           cache: "pip"
+
+      - name: Preflight workflow configuration
+        env:
+          TRADING_MODE: "DRY_RUN"
+          PAPER_SYMBOLS: "فولاد,فملی,شستا,وبملت,خودرو,شپنا,شبندر,کگل,کچاد,ذوب"
+          MAX_SCAN_SYMBOLS: "10"
+        run: |
+          set -euo pipefail
+          test "$TRADING_MODE" = "DRY_RUN"
+          test -n "$PAPER_SYMBOLS"
+          test "$MAX_SCAN_SYMBOLS" -ge 1
+          echo "WORKFLOW_PREFLIGHT=OK"
+          echo "TRADING_MODE=$TRADING_MODE"
+          echo "MAX_SCAN_SYMBOLS=$MAX_SCAN_SYMBOLS"
 
       - name: Install dependencies
         run: pip install -r requirements.txt
