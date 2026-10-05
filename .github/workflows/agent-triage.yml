@@ -1,0 +1,65 @@
+name: Iran Stock Agent - Failure Triage
+
+on:
+  workflow_run:
+    workflows: ["Iran Stock Paper Trading"]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+jobs:
+  triage:
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Inspect failed run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          echo "Agent inspecting failed run: $RUN_ID"
+          gh run view "$RUN_ID" --repo "$GITHUB_REPOSITORY" --json name,number,status,conclusion,headSha,event,url,jobs > run.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("run.json").read_text())
+          for job in data.get("jobs", []):
+              bad = [s.get("name","unknown") for s in job.get("steps",[]) if s.get("conclusion")=="failure"]
+              if job.get("conclusion")=="failure" or bad:
+                  print("FAILED JOB:", job.get("name"))
+                  print("FAILED STEPS:", ", ".join(bad) if bad else "job-level failure")
+          PY
+
+      - name: Create diagnosis issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "Iran Stock Agent failure run $RUN_ID in:title" --json number --jq 'length')
+          if [ "$existing" -gt 0 ]; then
+            echo "Diagnosis issue already exists."
+            exit 0
+          fi
+          cat > issue.md <<EOF
+          ## 🤖 Iran Stock Agent — شکست Workflow
+
+          اجرای **Iran Stock Paper Trading** ناموفق شد.
+
+          - Run: $RUN_ID
+          - Run URL: $RUN_URL
+          - Commit: $SHA
+          - Trading mode: DRY_RUN
+
+          Agent باید Job/Step شکست‌خورده را بررسی کند، علت ریشه‌ای را پیدا کند، در صورت امکان اصلاح کند و تست رگرسیون اجرا کند.
+
+          **قانون ایمنی:** فعال‌کردن معامله واقعی یا استفاده از API مستندنشده آگاه ممنوع است.
+          EOF
+          gh issue create --repo "$GITHUB_REPOSITORY" --title "🤖 Iran Stock Agent failure run $RUN_ID" --label "agent" --body-file issue.md
