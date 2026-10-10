@@ -360,13 +360,13 @@
         "rsi_delta": -1.28,
         "rsi_status": "بیش‌فروش",
         "ema9": 1372.6,
-        "ema21": 1430.86,
+        "ema21": 1430.84,
         "trend": "نزولی قوی",
         "trend_strength": 100.0,
         "trend_strength_status": "بسیار قوی",
-        "macd": -50.5173,
-        "macd_signal": -29.7187,
-        "macd_histogram": -20.7985,
+        "macd": -50.469,
+        "macd_signal": -29.6507,
+        "macd_histogram": -20.8183,
         "macd_state": "زیر صفر و زیر سیگنال",
         "rsi_divergence": "bullish",
         "macd_divergence": "bearish",
@@ -1174,5 +1174,5 @@
   },
   "top_gainers": [],
   "top_volume": [],
-  "generated_at": "2026-10-10T09:11:10.896015+00:00"
+  "generated_at": "2026-10-10T15:17:16.948667+00:00"
 }
