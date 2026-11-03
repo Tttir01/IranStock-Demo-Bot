@@ -238,110 +238,22 @@
     {
       "symbol": "شستا",
       "requested_symbol": "شستا",
-      "provider": "Tindex",
-      "price": 3068.0,
+      "provider": "UNAVAILABLE",
+      "price": 0,
       "signal": {
-        "score": 12,
-        "action": "NO_TRADE",
-        "min_score": 80,
-        "price": 3068.0,
-        "rsi": 33.56,
-        "rsi_previous": 33.61,
-        "rsi_delta": -0.06,
-        "rsi_status": "متمایل به نزول",
-        "ema9": 3323.02,
-        "ema21": 3445.87,
-        "trend": "نزولی قوی",
-        "trend_strength": 100.0,
-        "trend_strength_status": "بسیار قوی",
-        "macd": -91.2528,
-        "macd_signal": -29.3369,
-        "macd_histogram": -61.9159,
-        "macd_state": "زیر صفر و زیر سیگنال",
-        "rsi_divergence": "none",
-        "macd_divergence": "none",
-        "reversal_confirmation": false,
-        "fundamental": {
-          "score": 0,
-          "eps": null,
-          "estimated_eps": null,
-          "eps_growth_pct": null,
-          "pe": null,
-          "sector_pe": null,
-          "psr": null,
-          "pb": null,
-          "roe": null,
-          "roa": null,
-          "debt_to_equity": null,
-          "revenue_growth_pct": null,
-          "profit_growth_pct": null,
-          "breakdown": {
-            "eps": 0,
-            "pe": 0,
-            "growth": 0,
-            "relative_valuation": 0,
-            "psr": 0,
-            "pb": 0,
-            "profitability": 0,
-            "growth_quality": 0,
-            "leverage": 0
-          },
-          "reasons": [
-            "EPS در دسترس نیست",
-            "P/E در دسترس نیست",
-            "رشد EPS قابل محاسبه نیست",
-            "P/E صنعت برای مقایسه در دسترس نیست",
-            "PSR در دسترس نیست",
-            "P/B در دسترس نیست",
-            "ROE/ROA در دسترس نیست",
-            "رشد درآمد/سود در دسترس نیست",
-            "نسبت بدهی به حقوق صاحبان سهام در دسترس نیست"
-          ]
-        },
-        "volume": null,
-        "avg_volume_20": null,
-        "volume_ratio": null,
-        "volume_status": "نامشخص",
-        "breakdown": {
-          "base": 35,
-          "trend": -10,
-          "trend_strength": -5,
-          "macd": -8,
-          "rsi": 0,
-          "volume": 0,
-          "flow": 0,
-          "rsi_divergence": 0,
-          "macd_divergence": 0,
-          "reversal_confirmation": 0,
-          "fundamental": 0
-        },
+        "score": 0,
+        "action": "UNAVAILABLE",
         "reasons": [
-          "ساختار EMA نزولی است: قیمت زیر EMA9 و EMA9 زیر EMA21",
-          "قدرت روند نزولی 100.0/100 و قوی است",
-          "MACD پایین‌تر از خط سیگنال است؛ مومنتوم ضعیف/نزولی",
-          "RSI متمایل به نزول است",
-          "حجم تاریخی معتبر برای محاسبه میانگین ۲۰روزه در دسترس نیست",
-          "داده حقیقی/حقوقی در دسترس نیست؛ امتیاز جریان نقدینگی اعمال نشد",
-          "فاندامنتال: EPS در دسترس نیست",
-          "فاندامنتال: P/E در دسترس نیست",
-          "فاندامنتال: رشد EPS قابل محاسبه نیست",
-          "فاندامنتال: P/E صنعت برای مقایسه در دسترس نیست",
-          "فاندامنتال: PSR در دسترس نیست",
-          "فاندامنتال: P/B در دسترس نیست",
-          "فاندامنتال: ROE/ROA در دسترس نیست",
-          "فاندامنتال: رشد درآمد/سود در دسترس نیست",
-          "فاندامنتال: نسبت بدهی به حقوق صاحبان سهام در دسترس نیست"
-        ]
+          "شستا: TSETMC/Tindex unavailable and BRS API is not configured"
+        ],
+        "breakdown": {}
       },
       "flow": {
-        "real_buy_volume": 0.0,
-        "legal_buy_volume": 0.0,
-        "real_sell_volume": 0.0,
-        "legal_sell_volume": 0.0,
         "real_buy_ratio": null
       },
       "codal_filings": 0,
-      "history_points": 40
+      "history_points": 0,
+      "error": "شستا: TSETMC/Tindex unavailable and BRS API is not configured"
     },
     {
       "symbol": "وبملت",
@@ -454,112 +366,22 @@
     {
       "symbol": "خودرو",
       "requested_symbol": "خودرو",
-      "provider": "Tindex",
-      "price": 747.0,
+      "provider": "UNAVAILABLE",
+      "price": 0,
       "signal": {
-        "score": 43,
-        "action": "NO_TRADE",
-        "min_score": 80,
-        "price": 747.0,
-        "rsi": 69.63,
-        "rsi_previous": 70.0,
-        "rsi_delta": -0.37,
-        "rsi_status": "متمایل به صعود",
-        "ema9": 736.81,
-        "ema21": 716.71,
-        "trend": "صعودی قوی",
-        "trend_strength": 100.0,
-        "trend_strength_status": "بسیار قوی",
-        "macd": 18.2604,
-        "macd_signal": 11.5963,
-        "macd_histogram": 6.6641,
-        "macd_state": "بالای صفر و بالای سیگنال",
-        "rsi_divergence": "bearish",
-        "macd_divergence": "bearish",
-        "reversal_confirmation": false,
-        "fundamental": {
-          "score": 0,
-          "eps": null,
-          "estimated_eps": null,
-          "eps_growth_pct": null,
-          "pe": null,
-          "sector_pe": null,
-          "psr": null,
-          "pb": null,
-          "roe": null,
-          "roa": null,
-          "debt_to_equity": null,
-          "revenue_growth_pct": null,
-          "profit_growth_pct": null,
-          "breakdown": {
-            "eps": 0,
-            "pe": 0,
-            "growth": 0,
-            "relative_valuation": 0,
-            "psr": 0,
-            "pb": 0,
-            "profitability": 0,
-            "growth_quality": 0,
-            "leverage": 0
-          },
-          "reasons": [
-            "EPS در دسترس نیست",
-            "P/E در دسترس نیست",
-            "رشد EPS قابل محاسبه نیست",
-            "P/E صنعت برای مقایسه در دسترس نیست",
-            "PSR در دسترس نیست",
-            "P/B در دسترس نیست",
-            "ROE/ROA در دسترس نیست",
-            "رشد درآمد/سود در دسترس نیست",
-            "نسبت بدهی به حقوق صاحبان سهام در دسترس نیست"
-          ]
-        },
-        "volume": null,
-        "avg_volume_20": null,
-        "volume_ratio": null,
-        "volume_status": "نامشخص",
-        "breakdown": {
-          "base": 35,
-          "trend": 10,
-          "trend_strength": 5,
-          "macd": 8,
-          "rsi": 0,
-          "volume": 0,
-          "flow": 0,
-          "rsi_divergence": -8,
-          "macd_divergence": -7,
-          "reversal_confirmation": 0,
-          "fundamental": 0
-        },
+        "score": 0,
+        "action": "UNAVAILABLE",
         "reasons": [
-          "ساختار EMA صعودی است: قیمت بالای EMA9 و EMA9 بالای EMA21",
-          "قدرت روند صعودی 100.0/100 و قوی است",
-          "MACD بالای خط سیگنال و بالای صفر است؛ مومنتوم صعودی",
-          "هیستوگرام MACD در ناحیه مثبت در حال تضعیف است",
-          "حجم تاریخی معتبر برای محاسبه میانگین ۲۰روزه در دسترس نیست",
-          "داده حقیقی/حقوقی در دسترس نیست؛ امتیاز جریان نقدینگی اعمال نشد",
-          "واگرایی منفی RSI: قیمت سقف بالاتر ساخته ولی RSI سقف پایین‌تری ساخته است",
-          "واگرایی منفی MACD شناسایی شد؛ مومنتوم صعودی در حال تضعیف است",
-          "فاندامنتال: EPS در دسترس نیست",
-          "فاندامنتال: P/E در دسترس نیست",
-          "فاندامنتال: رشد EPS قابل محاسبه نیست",
-          "فاندامنتال: P/E صنعت برای مقایسه در دسترس نیست",
-          "فاندامنتال: PSR در دسترس نیست",
-          "فاندامنتال: P/B در دسترس نیست",
-          "فاندامنتال: ROE/ROA در دسترس نیست",
-          "فاندامنتال: رشد درآمد/سود در دسترس نیست",
-          "فاندامنتال: نسبت بدهی به حقوق صاحبان سهام در دسترس نیست"
-        ]
+          "خودرو: TSETMC/Tindex unavailable and BRS API is not configured"
+        ],
+        "breakdown": {}
       },
       "flow": {
-        "real_buy_volume": 0.0,
-        "legal_buy_volume": 0.0,
-        "real_sell_volume": 0.0,
-        "legal_sell_volume": 0.0,
         "real_buy_ratio": null
       },
       "codal_filings": 0,
-      "history_points": 40
+      "history_points": 0,
+      "error": "خودرو: TSETMC/Tindex unavailable and BRS API is not configured"
     },
     {
       "symbol": "شپنا",
@@ -893,110 +715,22 @@
     {
       "symbol": "کچاد",
       "requested_symbol": "کچاد",
-      "provider": "Tindex",
-      "price": 3002.0,
+      "provider": "UNAVAILABLE",
+      "price": 0,
       "signal": {
-        "score": 55,
-        "action": "NO_TRADE",
-        "min_score": 80,
-        "price": 3002.0,
-        "rsi": 50.0,
-        "rsi_previous": 49.89,
-        "rsi_delta": 0.11,
-        "rsi_status": "خنثی",
-        "ema9": 3049.99,
-        "ema21": 3028.8,
-        "trend": "خنثی",
-        "trend_strength": 68.4,
-        "trend_strength_status": "قوی",
-        "macd": 11.3982,
-        "macd_signal": -7.4006,
-        "macd_histogram": 18.7988,
-        "macd_state": "بالای صفر و بالای سیگنال",
-        "rsi_divergence": "none",
-        "macd_divergence": "none",
-        "reversal_confirmation": false,
-        "fundamental": {
-          "score": 0,
-          "eps": null,
-          "estimated_eps": null,
-          "eps_growth_pct": null,
-          "pe": null,
-          "sector_pe": null,
-          "psr": null,
-          "pb": null,
-          "roe": null,
-          "roa": null,
-          "debt_to_equity": null,
-          "revenue_growth_pct": null,
-          "profit_growth_pct": null,
-          "breakdown": {
-            "eps": 0,
-            "pe": 0,
-            "growth": 0,
-            "relative_valuation": 0,
-            "psr": 0,
-            "pb": 0,
-            "profitability": 0,
-            "growth_quality": 0,
-            "leverage": 0
-          },
-          "reasons": [
-            "EPS در دسترس نیست",
-            "P/E در دسترس نیست",
-            "رشد EPS قابل محاسبه نیست",
-            "P/E صنعت برای مقایسه در دسترس نیست",
-            "PSR در دسترس نیست",
-            "P/B در دسترس نیست",
-            "ROE/ROA در دسترس نیست",
-            "رشد درآمد/سود در دسترس نیست",
-            "نسبت بدهی به حقوق صاحبان سهام در دسترس نیست"
-          ]
-        },
-        "volume": null,
-        "avg_volume_20": null,
-        "volume_ratio": null,
-        "volume_status": "نامشخص",
-        "breakdown": {
-          "base": 35,
-          "trend": 5,
-          "trend_strength": 0,
-          "macd": 8,
-          "rsi": 7,
-          "volume": 0,
-          "flow": 0,
-          "rsi_divergence": 0,
-          "macd_divergence": 0,
-          "reversal_confirmation": 0,
-          "fundamental": 0
-        },
+        "score": 0,
+        "action": "UNAVAILABLE",
         "reasons": [
-          "EMA9 بالاتر از EMA21 است اما تأیید کامل روند صعودی وجود ندارد",
-          "MACD بالای خط سیگنال و بالای صفر است؛ مومنتوم صعودی",
-          "هیستوگرام MACD در ناحیه مثبت در حال تضعیف است",
-          "RSI در محدوده حمایتی/صعودی قرار دارد",
-          "حجم تاریخی معتبر برای محاسبه میانگین ۲۰روزه در دسترس نیست",
-          "داده حقیقی/حقوقی در دسترس نیست؛ امتیاز جریان نقدینگی اعمال نشد",
-          "فاندامنتال: EPS در دسترس نیست",
-          "فاندامنتال: P/E در دسترس نیست",
-          "فاندامنتال: رشد EPS قابل محاسبه نیست",
-          "فاندامنتال: P/E صنعت برای مقایسه در دسترس نیست",
-          "فاندامنتال: PSR در دسترس نیست",
-          "فاندامنتال: P/B در دسترس نیست",
-          "فاندامنتال: ROE/ROA در دسترس نیست",
-          "فاندامنتال: رشد درآمد/سود در دسترس نیست",
-          "فاندامنتال: نسبت بدهی به حقوق صاحبان سهام در دسترس نیست"
-        ]
+          "کچاد: TSETMC/Tindex unavailable and BRS API is not configured"
+        ],
+        "breakdown": {}
       },
       "flow": {
-        "real_buy_volume": 0.0,
-        "legal_buy_volume": 0.0,
-        "real_sell_volume": 0.0,
-        "legal_sell_volume": 0.0,
         "real_buy_ratio": null
       },
       "codal_filings": 0,
-      "history_points": 40
+      "history_points": 0,
+      "error": "کچاد: TSETMC/Tindex unavailable and BRS API is not configured"
     },
     {
       "symbol": "ذوب",
@@ -1121,7 +855,7 @@
     {
       "symbol": "شستا",
       "action": "NONE",
-      "reason": "NO_TRADE"
+      "reason": "داده معتبر ندارد"
     },
     {
       "symbol": "وبملت",
@@ -1131,7 +865,7 @@
     {
       "symbol": "خودرو",
       "action": "NONE",
-      "reason": "NO_TRADE"
+      "reason": "داده معتبر ندارد"
     },
     {
       "symbol": "شپنا",
@@ -1151,7 +885,7 @@
     {
       "symbol": "کچاد",
       "action": "NONE",
-      "reason": "NO_TRADE"
+      "reason": "داده معتبر ندارد"
     },
     {
       "symbol": "ذوب",
@@ -1170,5 +904,5 @@
   },
   "top_gainers": [],
   "top_volume": [],
-  "generated_at": "2026-11-03T11:32:30.656819+00:00"
+  "generated_at": "2026-11-03T18:56:33.203926+00:00"
 }
