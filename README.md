@@ -19,4 +19,6 @@
 
 ## مستندات
 - [مرور فنی و فهرست باگ‌های اصلاح‌شده](docs/review.md)
+- [طراحی اتصال به معامله واقعی (فقط طراحی، بدون ارسال سفارش)](docs/live-integration-design.md)
+- Shadow Mode: هر اجرا در `data/shadow-signals.jsonl` لاگ می‌شود؛ تحلیل آستانه با `python -m src.shadow.evaluate` (افق ۵/۱۰/۲۰ روزه، آستانه‌های ۵۵–۸۰ به‌صورت counterfactual)
 - داشبورد: `dashboard/index.html` را در کنار `dashboard/data.json` باز کنید (بدون نیاز به سرور).

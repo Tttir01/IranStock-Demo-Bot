@@ -9,6 +9,7 @@ from src.analysis.screener import market_rows, top_gainers, top_volume
 from src.dashboard.generate import write_dashboard
 from src.trading.paper_account import PaperAccount
 from src.trading.risk_manager import position_size, exit_reason
+from src.shadow.logger import log_shadow_signals, DEFAULT_SHADOW_PATH
 from src.telegram_bot import send_message
 from src.broker.agah import AgahBroker, OrderRequest
 
@@ -160,6 +161,29 @@ def _telegram_report(results, actions, snap, cfg, broker_status=None, broker_ord
     return "\n".join(lines)
 
 
+def _shadow_summary():
+    """خلاصه سبک از لاگ shadow برای داشبورد؛ خطا هرگز اجرای اصلی را نمی‌شکند."""
+    try:
+        from pathlib import Path
+        p = DEFAULT_SHADOW_PATH
+        if not Path(p).exists():
+            return {"records": 0, "note": "هنوز لاگی ثبت نشده"}
+        # بدون محاسبات سنگین: فقط تعداد رکورد و آخرین تحلیل آستانه را اگر داده کافی باشد
+        from src.shadow.evaluate import evaluate_shadow_log
+        ev = evaluate_shadow_log(p)
+        # فقط بخش‌های سبک را نگه می‌داریم تا data.json حجیم نشود
+        return {
+            "records": ev.get("total_records", 0),
+            "symbols": ev.get("symbols", [])[:10],
+            "date_range": ev.get("date_range"),
+            "thresholds": ev.get("thresholds"),
+            "horizons": ev.get("horizons"),
+            "per_threshold": ev.get("per_threshold"),
+        }
+    except Exception as exc:
+        return {"records": 0, "error": str(exc)}
+
+
 def _build_payload(results, actions, snap, gainers, volume, cfg):
     available = [r for r in results if float(r.get("price") or 0) > 0]
     return {
@@ -180,6 +204,7 @@ def _build_payload(results, actions, snap, gainers, volume, cfg):
         "paper": snap,
         "top_gainers": gainers,
         "top_volume": volume,
+        "shadow": _shadow_summary(),
     }
 
 
@@ -191,6 +216,11 @@ def main():
     account = PaperAccount.load(initial_cash=cfg.initial_cash)
 
     results = scan_symbols(cfg.symbols, client, brs, tindex, cfg)
+    # Shadow logging — همیشه و بدون تأثیر بر Paper/Telegram
+    try:
+        log_shadow_signals(results, cfg)
+    except Exception as exc:
+        print(f"SHADOW LOG FAILED | {exc}")
     actions, prices = _paper_actions(results, account, cfg)
     snap = account.snapshot(prices)
     account.save()

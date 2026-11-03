@@ -64,6 +64,12 @@ footer{margin:22px 0 8px;color:var(--muted);font-size:12px;line-height:1.9}
   <div class="card"><h3>⚙️ عملیات این اجرا</h3><div id="actions"></div></div>
 </div>
 
+<div class="card" style="margin-top:14px">
+  <h3>🧪 Shadow Mode — تحلیل آستانه</h3>
+  <div class="muted" style="margin-bottom:8px">هر اجرا بدون معامله واقعی لاگ می‌شود؛ ارزیابی ۵/۱۰/۲۰ روزه برای آستانه‌های ۵۵–۸۰ بدون تغییر رفتار زنده.</div>
+  <div id="shadow"></div>
+</div>
+
 <div class="two">
   <div class="card"><h3>🔥 برترین رشد</h3><div id="gainers"></div></div>
   <div class="card"><h3>💧 بیشترین حجم</h3><div id="volume"></div></div>
@@ -103,6 +109,29 @@ function positionTable(paper){
   return '<table><tr><th>نماد</th><th>تعداد</th><th>ورود</th><th>ارزش روز</th><th>حد ضرر</th><th>حد سود</th></tr>'+
     keys.map(k=>{const x=p[k]||{};return '<tr><td>'+esc(k)+'</td><td>'+money(x.quantity)+'</td><td>'+money(x.entry)+
     '</td><td>'+money(x.market_value)+'</td><td class="down">'+money(x.stop_loss)+'</td><td class="up">'+money(x.take_profit)+'</td></tr>';}).join('')+'</table>';
+}
+
+function shadowTable(sh){
+  if(!sh || !sh.records){return '<div class="muted">هنوز shadow log ثبت نشده. پس از چند اجرای خودکار، تحلیل آستانه اینجا نمایش داده می‌شود.</div>';}
+  if(sh.error){return '<div class="down">خطای shadow: '+esc(sh.error)+'</div>';}
+  const thr=sh.per_threshold||{};
+  const keys=Object.keys(thr).sort((a,b)=>Number(a)-Number(b));
+  if(!keys.length){return '<div class="muted">رکوردها ثبت شد ('+num(sh.records)+' رکورد) اما برای بازده ۵/۱۰/۲۰ روزه هنوز آتی کافی نیست.</div>';}
+  let html='<div class="muted" style="margin-bottom:6px">رکورد: '+num(sh.records)+' | نمادها: '+esc((sh.symbols||[]).join('، ')||'—')+
+    (sh.date_range? ' | بازه: '+esc(sh.date_range.from?.slice(0,10)||'')+' تا '+esc(sh.date_range.to?.slice(0,10)||'') : '')+'</div>';
+  html+='<div class="scroll"><table><tr><th>آستانه</th><th>سیگنال</th><th>افق</th><th>n</th><th>میانگین</th><th>میانه</th><th>برد</th><th>بهترین/بدترین</th></tr>';
+  for(const k of keys){
+    const info=thr[k]||{}, horizons=info.horizons||{};
+    const hKeys=Object.keys(horizons).sort((a,b)=>Number(a)-Number(b));
+    for(const h of hKeys){
+      const s=horizons[h]||{};
+      html+='<tr><td><b>'+esc(k)+'</b></td><td>'+num(info.signals)+'</td><td>'+esc(h)+' روز</td><td>'+num(s.n)+'</td>'+
+        '<td>'+(s.avg==null?'—':pct(s.avg))+'</td><td>'+(s.median==null?'—':pct(s.median))+'</td>'+
+        '<td>'+(s.win_rate==null?'—':pct(s.win_rate))+'</td><td>'+(s.best==null?'—':pct(s.best)+' / '+pct(s.worst))+'</td></tr>';
+    }
+  }
+  html+='</table></div><div class="muted" style="margin-top:8px">هر آستانه به‌صورت counterfactual ارزیابی شده؛ رفتار زنده همچنان آستانه اصلی را دارد. برای جزئیات: <code>python -m src.shadow.evaluate</code></div>';
+  return html;
 }
 
 function render(d){
@@ -163,6 +192,7 @@ function render(d){
 
   document.getElementById('positions').innerHTML=positionTable(paper);
   document.getElementById('actions').innerHTML=actionTable(actions);
+  const shEl=document.getElementById('shadow'); if(shEl) shEl.innerHTML=shadowTable(d.shadow);
 
   const unavailable='داده بازار (TSETMC) در این اجرا در دسترس نبود.';
   const g=d.top_gainers||[], v=d.top_volume||[];
