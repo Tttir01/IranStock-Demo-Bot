@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import math
-
 import numpy as np
 
-from src.analysis.indicators import ema, rsi, macd
+from src.analysis.indicators import ema
 
 
 def _rsi_status(value: float) -> str:

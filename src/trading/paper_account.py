@@ -24,8 +24,12 @@ class PaperAccount:
     def buy(self, symbol, price, quantity, stop_loss_pct=.04, take_profit_pct=.08):
         price = float(price)
         quantity = int(quantity)
+        # A non-positive price is never valid market data. Without this guard a
+        # bad feed could create a negative cost and silently increase cash.
+        if price <= 0 or quantity <= 0 or symbol in self.positions:
+            return False
         cost = price * quantity
-        if quantity <= 0 or cost > self.cash or symbol in self.positions:
+        if cost > self.cash:
             return False
         self.cash -= cost
         self.positions[symbol] = Position(
@@ -42,6 +46,11 @@ class PaperAccount:
         if not p:
             return None
         price = float(price)
+        if price <= 0:
+            # Keep the position: a zero/negative print is missing data, not a
+            # tradable exit price.
+            self.positions[symbol] = p
+            return None
         self.cash += price * p.quantity
         pnl = (price - p.entry) * p.quantity
         self.trades.append(

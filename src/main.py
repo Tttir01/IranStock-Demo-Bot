@@ -113,6 +113,17 @@ def _telegram_report(results, actions, snap, cfg, broker_status=None, broker_ord
     if not ranked:
         lines.append("• هیچ نماد دارای داده معتبر در این اجرا نبود.")
 
+    top_score = ranked[0]["signal"].get("score", 0) if ranked else 0
+    if ranked:
+        lines.append("")
+        lines.append(
+            f"🎚 بالاترین امتیاز: {top_score}/100 | آستانه خرید: {cfg.min_score}"
+        )
+        if top_score < cfg.min_score:
+            lines.append(
+                f"هیچ سیگنال خریدی به آستانه نرسید (فاصله: {cfg.min_score - top_score} امتیاز)."
+            )
+
     lines.extend(["", "📌 جزئیات نمادهای منتخب"])
 
     for item in ranked[:5]:
@@ -149,6 +160,29 @@ def _telegram_report(results, actions, snap, cfg, broker_status=None, broker_ord
     return "\n".join(lines)
 
 
+def _build_payload(results, actions, snap, gainers, volume, cfg):
+    available = [r for r in results if float(r.get("price") or 0) > 0]
+    return {
+        "summary": {
+            "symbols": list(cfg.symbols)[: cfg.max_symbols],
+            "scanned": len(results),
+            "available": len(available),
+            "top_score": max(
+                (int(r.get("signal", {}).get("score") or 0) for r in available),
+                default=0,
+            ),
+            "min_score": cfg.min_score,
+            "mode": cfg.trading_mode,
+            "provider": "MULTI",
+        },
+        "scan_results": results,
+        "actions": actions,
+        "paper": snap,
+        "top_gainers": gainers,
+        "top_volume": volume,
+    }
+
+
 def main():
     cfg = Config()
     client = TsetmcClient(cfg)
@@ -171,19 +205,7 @@ def main():
         print(f"MARKET WATCH UNAVAILABLE | {exc}")
         gainers, volume = [], []
 
-    payload = {
-        "summary": {
-            "symbols": list(cfg.symbols)[: cfg.max_symbols],
-            "scanned": len(results),
-            "provider": "MULTI",
-        },
-        "scan_results": results,
-        "actions": actions,
-        "paper": snap,
-        "top_gainers": gainers,
-        "top_volume": volume,
-    }
-    write_dashboard(payload)
+    write_dashboard(_build_payload(results, actions, snap, gainers, volume, cfg))
 
     print(
         f"IRAN STOCK PROFESSIONAL PAPER | scanned={len(results)} | "

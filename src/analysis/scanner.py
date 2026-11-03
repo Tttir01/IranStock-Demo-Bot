@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from src.analysis.signal_engine import score_signal
-from src.analysis.screener import market_rows
 from src.data.tsetmc_client import TsetmcError
 
 
@@ -97,7 +96,20 @@ def analyze_symbol(symbol_name, client, brs, tindex, cfg):
         f = flow[0] if flow else {}
         bi = float(f.get("buy_I_Volume") or f.get("Buy_I_Volume") or 0)
         bn = float(f.get("buy_N_Volume") or f.get("Buy_N_Volume") or 0)
-        ratio = bi / (bi + bn) if bi + bn else None
+        si = float(f.get("sell_I_Volume") or f.get("Sell_I_Volume") or 0)
+        sn = float(f.get("sell_N_Volume") or f.get("Sell_N_Volume") or 0)
+        # "Real buying power" is real (retail) buys versus real sells, not the
+        # retail share of total buys: retail usually dominates every buy, so the
+        # old ratio sat above 0.60 almost permanently and added a constant +5.
+        # Missing sell-side data must stay "unknown" instead of becoming a
+        # perfect 1.0 buy ratio, so the fallback needs a real sell volume.
+        if bi > 0 and si > 0:
+            ratio = bi / (bi + si)
+        elif bi + bn > 0:
+            ratio = bi / (bi + bn)  # legacy providers: retail share of buys
+        else:
+            ratio = None
+        retail_share = bi / (bi + bn) if bi + bn else None
 
         price = closes[-1]
         signal = score_signal(closes, volumes, ratio, cfg.min_score, fundamentals)
@@ -111,9 +123,10 @@ def analyze_symbol(symbol_name, client, brs, tindex, cfg):
             "flow": {
                 "real_buy_volume": bi,
                 "legal_buy_volume": bn,
-                "real_sell_volume": float(f.get("sell_I_Volume") or f.get("Sell_I_Volume") or 0),
-                "legal_sell_volume": float(f.get("sell_N_Volume") or f.get("Sell_N_Volume") or 0),
+                "real_sell_volume": si,
+                "legal_sell_volume": sn,
                 "real_buy_ratio": ratio,
+                "retail_share": retail_share,
             },
             "codal_filings": len(codal_filings),
             "history_points": len(closes),

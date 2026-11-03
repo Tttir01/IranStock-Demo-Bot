@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import requests
-from urllib.parse import quote
 
 
 class ProviderError(RuntimeError):

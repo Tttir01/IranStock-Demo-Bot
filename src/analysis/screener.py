@@ -19,9 +19,13 @@ def market_rows(rows):
         last=_num(r,"pl","pDrCotVal","last")
         close=_num(r,"pc","pClosing","close")
         yesterday=_num(r,"py","priceYesterday","yesterday")
+        # A halted symbol reports pl=0. Falling back to the closing price keeps
+        # it from showing up as a -100% "top loser" with an empty trade.
+        if last <= 0:
+            last = close
         volume=_num(r,"qTotTran5J","volume","zTotTran")
         value=_num(r,"qTotCap","value")
-        pct=((last-yesterday)/yesterday*100) if yesterday else 0
+        pct=((last-yesterday)/yesterday*100) if yesterday and last > 0 else 0
         result.append({"symbol":symbol,"last_toman":last/10,"close_toman":close/10,
                        "change_pct":pct,"volume":volume,"value_toman":value/10,
                        "ins_code":str(r.get("insCode") or r.get("inscode") or "")})

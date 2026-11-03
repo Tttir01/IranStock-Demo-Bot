@@ -62,4 +62,6 @@ jobs:
 
           **قانون ایمنی:** فعال‌کردن معامله واقعی یا استفاده از API مستندنشده آگاه ممنوع است.
           EOF
-          gh issue create --repo "$GITHUB_REPOSITORY" --title "🤖 Iran Stock Agent failure run $RUN_ID" --label "agent" --body-file issue.md
+          # The label may not exist in a fresh repo; never let that hide the issue.
+          gh issue create --repo "$GITHUB_REPOSITORY" --title "🤖 Iran Stock Agent failure run $RUN_ID" --label "agent" --body-file issue.md \
+            || gh issue create --repo "$GITHUB_REPOSITORY" --title "🤖 Iran Stock Agent failure run $RUN_ID" --body-file issue.md

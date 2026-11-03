@@ -1,6 +1,5 @@
 from __future__ import annotations
 import csv
-import io
 import time
 import requests
 from urllib.parse import quote
