@@ -454,22 +454,112 @@
     {
       "symbol": "خودرو",
       "requested_symbol": "خودرو",
-      "provider": "UNAVAILABLE",
-      "price": 0,
+      "provider": "Tindex",
+      "price": 747.0,
       "signal": {
-        "score": 0,
-        "action": "UNAVAILABLE",
+        "score": 43,
+        "action": "NO_TRADE",
+        "min_score": 80,
+        "price": 747.0,
+        "rsi": 69.63,
+        "rsi_previous": 70.0,
+        "rsi_delta": -0.37,
+        "rsi_status": "متمایل به صعود",
+        "ema9": 736.81,
+        "ema21": 716.71,
+        "trend": "صعودی قوی",
+        "trend_strength": 100.0,
+        "trend_strength_status": "بسیار قوی",
+        "macd": 18.2604,
+        "macd_signal": 11.5963,
+        "macd_histogram": 6.6641,
+        "macd_state": "بالای صفر و بالای سیگنال",
+        "rsi_divergence": "bearish",
+        "macd_divergence": "bearish",
+        "reversal_confirmation": false,
+        "fundamental": {
+          "score": 0,
+          "eps": null,
+          "estimated_eps": null,
+          "eps_growth_pct": null,
+          "pe": null,
+          "sector_pe": null,
+          "psr": null,
+          "pb": null,
+          "roe": null,
+          "roa": null,
+          "debt_to_equity": null,
+          "revenue_growth_pct": null,
+          "profit_growth_pct": null,
+          "breakdown": {
+            "eps": 0,
+            "pe": 0,
+            "growth": 0,
+            "relative_valuation": 0,
+            "psr": 0,
+            "pb": 0,
+            "profitability": 0,
+            "growth_quality": 0,
+            "leverage": 0
+          },
+          "reasons": [
+            "EPS در دسترس نیست",
+            "P/E در دسترس نیست",
+            "رشد EPS قابل محاسبه نیست",
+            "P/E صنعت برای مقایسه در دسترس نیست",
+            "PSR در دسترس نیست",
+            "P/B در دسترس نیست",
+            "ROE/ROA در دسترس نیست",
+            "رشد درآمد/سود در دسترس نیست",
+            "نسبت بدهی به حقوق صاحبان سهام در دسترس نیست"
+          ]
+        },
+        "volume": null,
+        "avg_volume_20": null,
+        "volume_ratio": null,
+        "volume_status": "نامشخص",
+        "breakdown": {
+          "base": 35,
+          "trend": 10,
+          "trend_strength": 5,
+          "macd": 8,
+          "rsi": 0,
+          "volume": 0,
+          "flow": 0,
+          "rsi_divergence": -8,
+          "macd_divergence": -7,
+          "reversal_confirmation": 0,
+          "fundamental": 0
+        },
         "reasons": [
-          "خودرو: TSETMC/Tindex unavailable and BRS API is not configured"
-        ],
-        "breakdown": {}
+          "ساختار EMA صعودی است: قیمت بالای EMA9 و EMA9 بالای EMA21",
+          "قدرت روند صعودی 100.0/100 و قوی است",
+          "MACD بالای خط سیگنال و بالای صفر است؛ مومنتوم صعودی",
+          "هیستوگرام MACD در ناحیه مثبت در حال تضعیف است",
+          "حجم تاریخی معتبر برای محاسبه میانگین ۲۰روزه در دسترس نیست",
+          "داده حقیقی/حقوقی در دسترس نیست؛ امتیاز جریان نقدینگی اعمال نشد",
+          "واگرایی منفی RSI: قیمت سقف بالاتر ساخته ولی RSI سقف پایین‌تری ساخته است",
+          "واگرایی منفی MACD شناسایی شد؛ مومنتوم صعودی در حال تضعیف است",
+          "فاندامنتال: EPS در دسترس نیست",
+          "فاندامنتال: P/E در دسترس نیست",
+          "فاندامنتال: رشد EPS قابل محاسبه نیست",
+          "فاندامنتال: P/E صنعت برای مقایسه در دسترس نیست",
+          "فاندامنتال: PSR در دسترس نیست",
+          "فاندامنتال: P/B در دسترس نیست",
+          "فاندامنتال: ROE/ROA در دسترس نیست",
+          "فاندامنتال: رشد درآمد/سود در دسترس نیست",
+          "فاندامنتال: نسبت بدهی به حقوق صاحبان سهام در دسترس نیست"
+        ]
       },
       "flow": {
+        "real_buy_volume": 0.0,
+        "legal_buy_volume": 0.0,
+        "real_sell_volume": 0.0,
+        "legal_sell_volume": 0.0,
         "real_buy_ratio": null
       },
       "codal_filings": 0,
-      "history_points": 0,
-      "error": "خودرو: TSETMC/Tindex unavailable and BRS API is not configured"
+      "history_points": 40
     },
     {
       "symbol": "شپنا",
@@ -1041,7 +1131,7 @@
     {
       "symbol": "خودرو",
       "action": "NONE",
-      "reason": "داده معتبر ندارد"
+      "reason": "NO_TRADE"
     },
     {
       "symbol": "شپنا",
@@ -1080,5 +1170,5 @@
   },
   "top_gainers": [],
   "top_volume": [],
-  "generated_at": "2026-11-04T00:00:58.449825+00:00"
+  "generated_at": "2026-11-04T03:53:25.498873+00:00"
 }
